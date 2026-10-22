@@ -29,3 +29,25 @@ test('latest replay cache coalesces concurrent work and refreshes after its shor
   assert.notStrictEqual(refreshed, first);
   assert.equal(fetchCount, 2);
 });
+
+test('a failed coalesced refresh is not cached and a later request can recover', async () => {
+  clearLatestReplayCacheForTests();
+  let fetchCount = 0;
+  const fetchMarket = async () => {
+    fetchCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    if (fetchCount === 1) throw new Error('temporary provider failure');
+    return { startTime: 0, endTime: 80 * minute, source: 'Binance.US' as const, candles };
+  };
+
+  const firstWave = await Promise.allSettled([
+    getLatestReplay({ fetchMarket }),
+    getLatestReplay({ fetchMarket }),
+  ]);
+  assert.deepEqual(firstWave.map((result) => result.status), ['rejected', 'rejected']);
+  assert.equal(fetchCount, 1);
+
+  const recovered = await getLatestReplay({ fetchMarket });
+  assert.equal(recovered.source, 'Binance.US');
+  assert.equal(fetchCount, 2);
+});

@@ -64,9 +64,11 @@ export function createRateLimiter(options: RateLimiterOptions = {}): RateLimiter
   };
 }
 
-export function clientRateLimitKey(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',', 1)[0]?.trim();
-  const realIp = request.headers.get('x-real-ip')?.trim();
-  const candidate = forwarded || realIp || 'unknown';
-  return candidate.slice(0, 128) || 'unknown';
+export function clientRateLimitKey(request: Request, isVercel = process.env.VERCEL === '1'): string {
+  // Vercel overwrites x-vercel-forwarded-for at its edge. Outside that trusted
+  // environment, use one conservative shared bucket instead of trusting a
+  // caller-controlled forwarding header.
+  if (!isVercel) return 'shared-untrusted-proxy';
+  const forwarded = request.headers.get('x-vercel-forwarded-for')?.split(',', 1)[0]?.trim();
+  return (forwarded || 'unknown-vercel-client').slice(0, 128);
 }

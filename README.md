@@ -25,7 +25,7 @@ Then open `http://localhost:3000` and press **Run latest 24h**. No API key, acco
 - Window: the 1,440 complete minute candles ending at the last completed UTC minute. The in-progress candle is excluded.
 - Decision timing: after minute *i* closes, using history through minute *i* only; any order fills at minute *i + 1*'s **open**. Candles' high/low are never used for fills.
 - Accounting: fees are included in each buy allocation, sell fees are deducted from proceeds, activity-probe reserves remain in USD, and `Ending BTC` is always zero after the explicit final close if required.
-- Availability protection: the POST endpoint keeps the completed latest replay in server memory for 20 seconds, coalesces concurrent refreshes, and applies an in-process best-effort limit of eight requests per client key per minute. In a trusted deployment proxy that overwrites forwarding headers, that key is the client IP; without one, forwarding headers can be spoofed and the limit is only a coarse abuse control. This is intentionally not a distributed rate limit; multi-instance production hosting needs a shared store or edge control.
+- Availability protection: the POST endpoint keeps the completed latest replay in server memory for 20 seconds, coalesces concurrent refreshes, and applies an in-process best-effort limit of eight requests per client key per minute. On Vercel it keys only from Vercel's edge-owned forwarding header; elsewhere it deliberately uses one conservative shared bucket rather than trusting spoofable forwarding headers. This is not a distributed rate limit; a multi-instance production service would add a shared edge/store limit.
 
 ## Strategy: one trend core plus transparent tiny probes
 
