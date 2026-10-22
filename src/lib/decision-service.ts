@@ -21,11 +21,15 @@ type CachedDecision = { expiresAt: number; payload: DecisionPayload };
 let latestDecision: CachedDecision | null = null;
 let inFlightDecision: Promise<DecisionPayload> | null = null;
 
+function isInstantExecution(payload: DecisionPayload): boolean {
+  return payload.decision.setup.executionStatus === 'CURRENT';
+}
+
 /** Coalesces public data fetches and keeps a short, read-only research cache. */
 export async function getLatestDecision(dependencies: DecisionDependencies = {}): Promise<DecisionPayload> {
   const now = dependencies.now ?? Date.now;
   const currentTime = now();
-  if (latestDecision && latestDecision.expiresAt > currentTime) return latestDecision.payload;
+  if (latestDecision && latestDecision.expiresAt > currentTime && !isInstantExecution(latestDecision.payload)) return latestDecision.payload;
   if (inFlightDecision) return inFlightDecision;
 
   const fetchMarket = dependencies.fetchMarket ?? fetchDecisionMarketData;
@@ -55,7 +59,8 @@ export async function getLatestDecision(dependencies: DecisionDependencies = {})
       source: market.source,
       decision: evaluate({ ...market, asOf: generatedAt }),
     };
-    latestDecision = { payload, expiresAt: generatedAt + DECISION_CACHE_TTL_MS };
+    // CURRENT is valid only at one exact instant; never retain it for a later request.
+    latestDecision = isInstantExecution(payload) ? null : { payload, expiresAt: generatedAt + DECISION_CACHE_TTL_MS };
     return payload;
   })();
   inFlightDecision = refresh;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clearFearGreedContextForTests, fetchDecisionMarketData, parseCompletedBinanceLabCandles, parseFearGreed, parseObservedHourlyOpenAtBoundary, validateCompletedLabCandles } from '../src/lib/decision-data';
 import { clearLatestDecisionCacheForTests, getLatestDecision } from '../src/lib/decision-service';
+import type { DecisionOutput } from '../src/domain/decision';
 
 const HOUR = 60 * 60 * 1_000;
 const now = 5 * HOUR + 30_000;
@@ -102,4 +103,24 @@ test('Decision service coalesces cache misses and does not retain a failed refre
   assert.equal(unavailable.decision.action, 'NO TRADE');
   assert.equal(unavailable.decision.data.dataQualityPass, false);
   assert.match(unavailable.decision.actionReason, /required candle data is temporarily unavailable/);
+});
+
+test('Decision service never retains an exact-boundary CURRENT instruction', async () => {
+  clearLatestDecisionCacheForTests();
+  let currentTime = now;
+  let calls = 0;
+  const fetchMarket = async () => {
+    calls += 1;
+    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
+  };
+  const evaluate = () => ({
+    setup: { executionStatus: currentTime === now ? 'CURRENT' : 'EXPIRED' },
+  }) as DecisionOutput;
+
+  const first = await getLatestDecision({ fetchMarket, evaluate, now: () => currentTime });
+  assert.equal(first.decision.setup.executionStatus, 'CURRENT');
+  currentTime += 1;
+  const second = await getLatestDecision({ fetchMarket, evaluate, now: () => currentTime });
+  assert.equal(second.decision.setup.executionStatus, 'EXPIRED');
+  assert.equal(calls, 2);
 });

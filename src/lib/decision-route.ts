@@ -3,6 +3,7 @@ import { clientRateLimitKey, type RateLimiter } from '@/lib/rate-limit';
 import type { DecisionPayload } from '@/lib/decision-service';
 
 export const DECISION_SUCCESS_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=60';
+export const DECISION_CURRENT_CACHE_CONTROL = 'no-store';
 
 export type DecisionRouteDependencies = {
   getDecision: () => Promise<DecisionPayload>;
@@ -29,8 +30,12 @@ export function createDecisionRoute(dependencies: DecisionRouteDependencies) {
     }
 
     try {
-      return NextResponse.json(await dependencies.getDecision(), {
-        headers: { 'Cache-Control': DECISION_SUCCESS_CACHE_CONTROL },
+      const payload = await dependencies.getDecision();
+      const cacheControl = payload.decision.setup.executionStatus === 'CURRENT'
+        ? DECISION_CURRENT_CACHE_CONTROL
+        : DECISION_SUCCESS_CACHE_CONTROL;
+      return NextResponse.json(payload, {
+        headers: { 'Cache-Control': cacheControl },
       });
     } catch (error) {
       logError('Decision Lab refresh failed.', error);
