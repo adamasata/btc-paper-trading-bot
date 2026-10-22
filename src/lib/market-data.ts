@@ -11,12 +11,12 @@ export type MarketWindow = { startTime: number; endTime: number; source: Source;
 type BinanceKline = [number, string, string, string, string, string, number, ...unknown[]];
 type CoinbaseCandle = [number, number, number, number, number, number];
 
-function latestCompletedWindow(now = Date.now()): { startTime: number; endTime: number } {
+export function latestCompletedWindow(now = Date.now()): { startTime: number; endTime: number } {
   const endTime = Math.floor(now / MINUTE) * MINUTE;
   return { startTime: endTime - DAY, endTime };
 }
 
-function parseBinance(payload: unknown, startTime: number, endTime: number): Candle[] {
+export function parseBinance(payload: unknown, startTime: number, endTime: number): Candle[] {
   if (!Array.isArray(payload)) throw new Error('Binance.US returned a non-array payload.');
   return (payload as BinanceKline[])
     .map((row) => ({ openTime: Number(row[0]), open: Number(row[1]), close: Number(row[4]) }))
@@ -24,7 +24,7 @@ function parseBinance(payload: unknown, startTime: number, endTime: number): Can
     .sort((a, b) => a.openTime - b.openTime);
 }
 
-function parseCoinbase(payload: unknown, startTime: number, endTime: number): Candle[] {
+export function parseCoinbase(payload: unknown, startTime: number, endTime: number): Candle[] {
   if (!Array.isArray(payload)) throw new Error('Coinbase returned a non-array payload.');
   return (payload as CoinbaseCandle[])
     .map((row) => ({ openTime: Number(row[0]) * 1000, open: Number(row[3]), close: Number(row[4]) }))
@@ -32,7 +32,7 @@ function parseCoinbase(payload: unknown, startTime: number, endTime: number): Ca
     .sort((a, b) => a.openTime - b.openTime);
 }
 
-function validateCandles(candles: Candle[], startTime: number, endTime: number): Candle[] {
+export function validateCandles(candles: Candle[], startTime: number, endTime: number): Candle[] {
   const byTime = new Map(candles.map((candle) => [candle.openTime, candle]));
   const ordered = [...byTime.values()].sort((a, b) => a.openTime - b.openTime);
   const expectedCount = (endTime - startTime) / MINUTE;

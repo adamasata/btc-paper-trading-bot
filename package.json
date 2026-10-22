@@ -14,7 +14,7 @@
     "demo": "tsx src/cli.ts"
   },
   "dependencies": {
-    "next": "15.5.3",
+    "next": "^15.5.28",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
@@ -24,9 +24,12 @@
     "@types/react": "19.1.5",
     "@types/react-dom": "19.1.5",
     "eslint": "9.35.0",
-    "eslint-config-next": "15.5.3",
+    "eslint-config-next": "^15.5.28",
     "tsx": "4.20.5",
     "typescript": "5.8.3",
     "typescript-eslint": "8.42.0"
+  },
+  "overrides": {
+    "postcss": "8.5.31"
   }
 }

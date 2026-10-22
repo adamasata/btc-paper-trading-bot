@@ -1,24 +1,30 @@
 import { NextResponse } from 'next/server';
-import { runBacktest } from '@/domain/backtest';
-import { fetchLatest24h } from '@/lib/market-data';
+import { clientRateLimitKey, createRateLimiter } from '@/lib/rate-limit';
+import { getLatestReplay } from '@/lib/replay-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST() {
+const rateLimiter = createRateLimiter();
+
+export async function POST(request: Request) {
+  const rateLimit = rateLimiter.check(clientRateLimitKey(request));
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many replay requests. Please try again shortly.' },
+      { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
   try {
-    const market = await fetchLatest24h();
-    const result = runBacktest(market.candles);
-    return NextResponse.json({
-      generatedAt: new Date().toISOString(),
-      source: market.source,
-      dataWindow: { startTime: market.startTime, endTime: market.endTime },
-      result,
-    }, {
-      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    return NextResponse.json(await getLatestReplay(), {
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected server error.';
-    return NextResponse.json({ error: message }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    console.error('BTC/USD replay failed.', error);
+    return NextResponse.json(
+      { error: 'Market-data replay is temporarily unavailable. Please try again shortly.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }

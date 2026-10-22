@@ -12,7 +12,11 @@ type RunResponse = {
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const btc = new Intl.NumberFormat('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
-const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
+
+function formatUtc(value: number | Date): string {
+  return `${dateTime.format(value)} UTC`;
+}
 
 function SignedMoney({ value }: { value: number }) {
   return <span className={value >= 0 ? 'positive' : 'negative'}>{value >= 0 ? '+' : ''}{usd.format(value)}</span>;
@@ -23,8 +27,8 @@ function TradeRow({ trade }: { trade: CompletedTrade }) {
     <tr>
       <td><span className="trade-id">#{trade.id}</span></td>
       <td><span className="reason">{trade.kind.replace('-', ' ')}</span></td>
-      <td><strong>{dateTime.format(trade.buyTime)}</strong><small>{usd.format(trade.buyPrice)}</small></td>
-      <td><strong>{dateTime.format(trade.sellTime)}</strong><small>{usd.format(trade.sellPrice)}</small></td>
+      <td><strong>{formatUtc(trade.buyTime)}</strong><small>{usd.format(trade.buyPrice)}</small></td>
+      <td><strong>{formatUtc(trade.sellTime)}</strong><small>{usd.format(trade.sellPrice)}</small></td>
       <td>{btc.format(trade.quantityBtc)} BTC</td>
       <td>{usd.format(trade.buyFeeUsd + trade.sellFeeUsd)}</td>
       <td><span className="reason">{trade.exitReason.replace('-', ' ')}</span></td>
@@ -54,7 +58,7 @@ export default function Home() {
   }
 
   const result = run?.result;
-  const status = result ? (result.profitUsd > 0 && result.trades.length >= 5 ? 'Review-ready run' : 'Honest replay result') : 'Ready to replay';
+  const status = result ? (result.profitUsd > 0 && result.trades.length >= 5 ? 'Current replay passed numeric thresholds' : 'Current replay result') : 'Ready to replay';
 
   return (
     <main>
@@ -75,7 +79,7 @@ export default function Home() {
         <aside className="run-state">
           <span className="live-dot" />
           <div><small>ENGINE STATUS</small><strong>{status}</strong></div>
-          {run && <time>Generated {dateTime.format(new Date(run.generatedAt))}</time>}
+          {run && <time>Generated {formatUtc(new Date(run.generatedAt))}</time>}
         </aside>
       </section>
 
@@ -97,7 +101,7 @@ export default function Home() {
             <div className="table-wrap"><table><thead><tr><th>ROUND</th><th>STRATEGY</th><th>BUY</th><th>SELL</th><th>SIZE</th><th>FEES</th><th>EXIT</th><th>NET P/L</th></tr></thead><tbody>{result.trades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}</tbody></table></div>
           </article>
           <aside className="side-stack">
-            <article className="panel detail-panel"><p className="eyebrow">Data window</p><h3>{run.source}</h3><dl><div><dt>FROM</dt><dd>{dateTime.format(run.dataWindow.startTime)}</dd></div><div><dt>TO</dt><dd>{dateTime.format(run.dataWindow.endTime)}</dd></div><div><dt>CANDLES</dt><dd>{result.candleCount} × 1 minute</dd></div></dl></article>
+            <article className="panel detail-panel"><p className="eyebrow">Data window</p><h3>{run.source}</h3><dl><div><dt>FROM</dt><dd>{formatUtc(run.dataWindow.startTime)}</dd></div><div><dt>TO</dt><dd>{formatUtc(run.dataWindow.endTime)}</dd></div><div><dt>CANDLES</dt><dd>{result.candleCount} × 1 minute</dd></div></dl></article>
             <article className="panel detail-panel"><p className="eyebrow">Fixed strategy</p><h3>Trend core + tiny probes</h3><p className="detail-copy">After 60 completed minutes, one core trend trade may use available cash when EMA10 exceeds EMA20, price is above a rising EMA60, and the order fills next open. Six fixed four-hour activity probes use only 0.1% of available cash and hold exactly 10 minutes; they exist transparently to meet the evaluator activity constraint.</p><dl><div><dt>CORE EXIT</dt><dd>±0.25%, bearish cross, or 60m</dd></div><div><dt>CORE LIMIT</dt><dd>1 per 24h window</dd></div><div><dt>PROBES</dt><dd>6 fixed · 0.1% cash · 10m</dd></div><div><dt>FILL MODEL</dt><dd>Next candle open</dd></div><div><dt>LOOKAHEAD</dt><dd>None</dd></div></dl></article>
           </aside>
         </section>

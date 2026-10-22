@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runBacktest } from '../src/domain/backtest';
-import { DEFAULT_PARAMETERS, causalTrendSignal } from '../src/domain/strategy';
+import { DEFAULT_PARAMETERS, causalTrendSignal, hasBearishCross } from '../src/domain/strategy';
 import type { Candle } from '../src/domain/types';
 
 const minute = 60_000;
@@ -87,4 +87,41 @@ test('a final open core position is explicitly force-closed and leaves no BTC', 
   assert.equal(result.trades[0].sellTime, 61 * minute);
   assert.equal(result.endingBtc, 0);
   assert.ok(result.finalBalanceUsd > 0);
+  approximatelyEqual(result.finalBalanceUsd, result.parameters.initialCash + result.trades.reduce((sum, trade) => sum + trade.profitUsd, 0));
+});
+
+test('a bearish EMA cross exits a core position at the following candle open', () => {
+  const candles = risingCandles(63);
+  candles[60] = { openTime: 60 * minute, open: 106, close: 90 };
+  candles[61] = { openTime: 61 * minute, open: 89, close: 88 };
+
+  assert.equal(hasBearishCross(candles, 60, DEFAULT_PARAMETERS), true);
+  const result = runBacktest(candles, {
+    activityProbeCount: 0,
+    coreTakeProfitRate: 1,
+    coreStopLossRate: 1,
+  });
+
+  assert.equal(result.trades.length, 1);
+  assert.equal(result.trades[0].exitReason, 'bearish-cross');
+  assert.equal(result.trades[0].buyTime, 60 * minute);
+  assert.equal(result.trades[0].sellTime, 61 * minute);
+  assert.equal(result.trades[0].sellPrice, 89);
+  assert.equal(result.endingBtc, 0);
+});
+
+test('a core position exits on its predeclared time limit and reconciles cash', () => {
+  const result = runBacktest(risingCandles(65), {
+    activityProbeCount: 0,
+    coreTakeProfitRate: 1,
+    coreStopLossRate: 1,
+    coreMaxHoldMinutes: 3,
+  });
+
+  assert.equal(result.trades.length, 1);
+  assert.equal(result.trades[0].exitReason, 'time-limit');
+  assert.equal(result.trades[0].buyTime, 60 * minute);
+  assert.equal(result.trades[0].sellTime, 63 * minute);
+  approximatelyEqual(result.finalBalanceUsd, result.parameters.initialCash + result.trades[0].profitUsd);
+  assert.equal(result.endingBtc, 0);
 });
