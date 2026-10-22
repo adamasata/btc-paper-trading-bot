@@ -42,16 +42,16 @@ No causal strategy can honestly guarantee a profit on every future rolling 24-ho
 
 ## Example local run
 
-Run at 2026-10-22 16:05 UTC, Binance.US, window `2026-10-21T16:05:00Z` through `2026-10-22T16:05:00Z`:
+Run at 2026-10-22 16:15 UTC, Binance.US, window `2026-10-21T16:15:00Z` through `2026-10-22T16:15:00Z`:
 
 | Metric | Result |
 | --- | ---: |
 | Complete one-minute candles | 1,440 |
 | Completed round trips | 17 |
-| Final USD balance | $9,667.04 |
-| Net P/L | -$332.96 (-3.33%) |
-| Buy-and-hold final value | $9,639.63 (-$360.37) |
-| Fees paid | $334.67 |
+| Final USD balance | $9,588.62 |
+| Net P/L | -$411.38 (-4.11%) |
+| Buy-and-hold final value | $9,622.74 (-$377.26) |
+| Fees paid | $332.90 |
 | Ending BTC | 0.000000 |
 
 The CLI prints each buy/sell timestamp and price, BTC size, combined fee, exit reason, and USD/% P&L. That exact run had at least five round trips and ended flat, but it was not profitable; this is retained as an honest result rather than a cherry-picked simulation.

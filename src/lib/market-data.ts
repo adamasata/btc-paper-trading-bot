@@ -49,13 +49,22 @@ function validateCandles(candles: Candle[], startTime: number, endTime: number):
 }
 
 async function requestJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    cache: 'no-store',
-    signal: AbortSignal.timeout(12_000),
-    headers: { Accept: 'application/json', 'User-Agent': 'btc-paper-replay/1.0' },
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status} from market-data provider.`);
-  return response.json();
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12_000),
+        headers: { Accept: 'application/json', 'User-Agent': 'btc-paper-replay/1.0' },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status} from market-data provider.`);
+      return response.json();
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Market-data request failed.');
 }
 
 async function fetchBinance(startTime: number, endTime: number): Promise<Candle[]> {

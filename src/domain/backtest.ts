@@ -86,10 +86,13 @@ export function runBacktest(candles: Candle[], overrides: Partial<StrategyParame
     if (position) {
       const observedReturn = observed.close / position.buyPrice - 1;
       const heldMinutes = (observed.openTime - position.buyTime) / MINUTE;
+      // The decision needs one further candle to reach an open-price fill, so
+      // trigger one observed minute before the requested fill-to-fill maximum.
+      const timeLimitReached = heldMinutes >= Math.max(0, maxHoldMinutes - 1);
       const reason: CompletedTrade['exitReason'] | null =
         observedReturn >= parameters.takeProfitRate ? 'take-profit'
           : observedReturn <= -parameters.stopLossRate ? 'stop-loss'
-            : heldMinutes >= maxHoldMinutes ? 'time-limit'
+            : timeLimitReached ? 'time-limit'
               : signal && signal.zScore >= parameters.exitZScore && observedReturn >= feeRate * 2 + 0.0005 ? 'signal'
                 : null;
       if (reason) {

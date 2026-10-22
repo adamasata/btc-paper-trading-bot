@@ -44,6 +44,16 @@ test('predeclared cadence produces at least five completed, flat round trips on 
   assert.ok(Number.isFinite(result.finalBalanceUsd));
 });
 
+test('time limit is measured fill-to-fill despite next-open execution', () => {
+  const result = runBacktest(candles(15), {
+    lookbackMinutes: 2,
+    fallbackEntryIntervalMinutes: 100,
+    maxHoldMinutes: 10,
+  });
+  assert.equal(result.trades[0].exitReason, 'time-limit');
+  assert.equal(result.trades[0].sellTime - result.trades[0].buyTime, 10 * minute);
+});
+
 test('a live position is force-closed at the final close and records the reason', () => {
   const result = runBacktest(candles(8), {
     lookbackMinutes: 2,
