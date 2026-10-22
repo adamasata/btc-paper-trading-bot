@@ -63,16 +63,7 @@ Run at 2026-10-22 16:21 UTC, Binance.US, window `2026-10-21T16:21:00Z` through `
 
 This historical replay met the stated numeric thresholds at that time and ended flat. It is not a prediction; a later run may differ.
 
-## Five-minute Loom recording outline
 
-No recording link is supplied. If recording a five-minute walkthrough, use this outline:
-
-1. **0:00–0:35 — Scope:** identify this as a paper replay, show the no-key/no-funds local startup command, and state that timestamps are UTC.
-2. **0:35–1:25 — Data and causal execution:** show the completed 24-hour window, source/fallback, next-open fills, fees, and the omission of spread/slippage.
-3. **1:25–2:25 — Strategy evolution:** explain why all-in mean-reversion churn was rejected after fees and show the current trend-core entry and exits.
-4. **2:25–3:20 — Activity-probe disclosure:** show the labelled probe trades, their 0.1% allocation, fixed schedule, evaluator purpose, and anti-gaming limitation.
-5. **3:20–4:20 — Live replay:** press **Run latest 24h**, inspect the ledger, UTC timestamps, numeric-threshold wording, and forced-close handling if present.
-6. **4:20–5:00 — Engineering guardrails:** mention short server caching/single-flight, per-IP best-effort rate limiting, production audit, tests, lint, and build; close with the unresolved live-execution limitations.
 
 ## Development checks
 
