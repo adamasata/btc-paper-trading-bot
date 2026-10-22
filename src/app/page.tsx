@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { BacktestResult, CompletedTrade } from '@/domain/types';
 
 type RunResponse = {
@@ -65,6 +66,7 @@ export default function Home() {
       <nav>
         <a className="brand" href="#top" aria-label="Lumen home"><span className="brand-mark">L</span> LUMEN</a>
         <span className="nav-note">Paper execution · BTC/USD</span>
+        <Link className="lab-home-link" href="/decision-lab">Decision Lab</Link>
         <button className="run-button" onClick={runLatest24h} disabled={loading}>
           <span className={loading ? 'spinner' : 'button-dot'} />{loading ? 'Replaying market…' : 'Run latest 24h'}
         </button>

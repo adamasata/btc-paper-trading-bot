@@ -1,0 +1,51 @@
+# Decision Lab methodology v1
+
+## Scope and safety boundary
+
+Decision Lab is a read-only BTC/USD research vertical slice. It fetches public Binance.US `BTCUSD` candles and the public Alternative.me Fear & Greed feed without an API key. It does not submit orders, modify the existing replay, modify bot decisions, access account data, or claim that an observed setup will occur again.
+
+The v1 output is intentionally binary: `ENTER LONG` only when every actioning prerequisite passes; otherwise `NO TRADE`. Missing, malformed, gapped, stale, or incomplete **required candle data** always resolves to `NO TRADE`. Fear & Greed is optional context: its absence, staleness, or irregular cadence is disclosed but cannot alter the action. The action score is explicitly **action-rule coverage, not probability**. It is not a calibrated win rate, expected-value estimate, investment advice, or a recommendation to trade.
+
+The deployed, standalone audit record is available at `/decision-methodology` and is linked from Decision Lab.
+
+## Fixed data contract
+
+- Daily input: at least 220 contiguous, completed UTC daily Binance.US BTCUSD candles. The forming daily bar is excluded.
+- Hourly input: at least 22 contiguous, completed UTC hourly Binance.US BTCUSD candles. The forming hourly bar is excluded.
+- Context input: the latest valid Alternative.me Fear & Greed records when available. Its refresh is non-blocking: a response with validated required candles can initially show context unavailable while a module-local refresh completes. Seven-day direction requires seven records spaced approximately daily (each 18–30 hours apart) spanning 5–7 days; otherwise its label is `unavailable`.
+- A candle is accepted only when its OHLC values are finite, positive, internally consistent, aligned to the expected UTC interval, and part of the required contiguous trailing range.
+- The public read-only endpoint returns `public, s-maxage=60, stale-while-revalidate=60`. Its module-local 60-second cache/single-flight and rate limiter reduce duplicate upstream calls only within one runtime; they are best effort, not distributed production controls.
+
+## Deterministic action sequence
+
+1. **Required candle data quality.** Require the candle contract and latest completed daily/hourly boundaries. Any failure is an action-rule failure and therefore `NO TRADE`.
+2. **Daily regime.** Calculate the latest completed daily 21-day SMA and SMA-seeded 21-day EMA. The regime is bullish only when the latest completed daily close is strictly above both. The 100-day and 200-day SMA values are displayed as context; v1 does not add undisclosed conditions to the action.
+3. **Frozen higher-timeframe references.** Calculate two values once from completed daily closes before the current daily close: the prior seven-day mean and the prior 30-day mean. They do not float with the current close. Of values at or below the latest completed hourly close, use the nearest (highest) as the eligible pivot.
+4. **Hourly confirmation.** Calculate a standard Wilder 14-hour ATR and a 21-hour EMA from completed hourly bars. The 21-hour EMA is displayed as context only. A strict reclaim needs two completed hourly candles: the prior close must be at or below the frozen pivot; the latest candle low must trade to or below it; and the latest close must finish strictly above it. No intrabar claim is allowed.
+5. **No chase and volatility.** The confirming close can be no more than 0.5 ATR above the reclaimed pivot. ATR must be at most 5% of the latest close. These thresholds are predeclared implementation constraints, not claims of optimization.
+6. **Action and execution.** Only every actioning condition above produces `ENTER LONG`. It means a **proposed next-hour-open instruction**, never a confirming-close fill. At the next observed hourly open, execution is allowed only if that open remains above the pivot and within 0.5 ATR. Risk and +1R/+2R targets use the actual execution price only; they are not fabricated from the confirming close. The displayed proposed invalidation is pivot minus 0.5 ATR, and the proposal expires at that next hourly open.
+
+## Fear & Greed boundary
+
+Fear & Greed shows the latest value, classification, original source timestamp, age, and cadence-qualified seven-value direction with direct attribution to Alternative.me [9] [10]. It is **context only in v1**: valid, stale, missing, or irregular Fear & Greed cannot alter `ENTER LONG` versus `NO TRADE`, action-rule coverage, pivot selection, proposed execution, invalidation, risk, targets, or expiry. Its health appears in a separate context ledger and must not become an action input until a separately pre-registered walk-forward evaluation supports that change.
+
+## Inspiration, non-endorsement, and research limits
+
+The creator material below motivated research questions around a 21-day moving-average framework [1], frozen high-timeframe references [2], completed-close confirmation and no-chase discipline [3], and the danger of promotional/certainty framing [4] [5] [6]. Social posts [7] [8] are access-limited research examples, not strategy evidence. Decision Lab independently specifies the rules above; it does not reproduce discretionary calls.
+
+V1 never automates creator price targets, harmonics, clickbait titles, or social sentiment. Video and social material can involve commercial incentives, affiliate relationships, attention incentives, hindsight selection, survivorship bias, unavailable historical context, and incomplete downside disclosure. A cited idea is not evidence that it has positive expectancy.
+
+## Source registry
+
+Each record includes a direct URL, the evidence/claim recorded for this implementation, the exact Decision Lab mapping, and retrieval or unknown-data caveats.
+
+1. **The #1 Bitcoin Indicator You Need To Watch To Predict Price** — DataDash / Nicholas Merten — 2024-04-24. [Direct video](https://www.youtube.com/watch?v=ph7TMt-zIio). Evidence: 21-day SMA+EMA pocket, 100/200 MA context, and oscillators as nondeterministic context. Mapping: motivated the completed 21-day moving-average display and 100/200-day context; no oscillator rule or price-prediction claim is used. Caveat: registered research summary, not strategy proof or a live signal.
+2. **YouTube source n6oAJKwHcNo (title not independently retrieved)** — DataDash / Paul Sampson — 2025-02-06. [Direct video](https://www.youtube.com/watch?v=n6oAJKwHcNo). Evidence: frozen prior-session averages and Fibonacci/range discussion; an approximately 70% claim is unverified. Mapping: motivated frozen prior close-mean references only; Fibonacci/range framing and the unverified claim are excluded. Caveat: title was not independently retrieved; the 70% claim is not expectancy evidence.
+3. **Bitcoin Is About to Shock Everyone... The Breakout Has Begun** — DataDash / Paul Sampson — 2026-08-20. [Direct video](https://www.youtube.com/watch?v=JcBUcSiRZmI). Evidence: close confirmation, fixed 180-day average, invalidation, and no-chase framing. Mapping: motivated completed-close confirmation and explicit no-chase/invalidation disclosure; the 180-day average and discretionary breakout claim are not copied. Caveat: registered research summary, not a causality or performance claim.
+4. **YouTube source mH9o6zAoSw0 (title not independently retrieved)** — creator not independently retrieved — publication date unknown. [Direct video](https://www.youtube.com/watch?v=mH9o6zAoSw0). Evidence: recent creator-video example of promotional/certainty framing. Mapping: negative example only; it is not a rule, target source, or probability estimate. Caveat: publication date and metadata unknown; not used as strategy proof.
+5. **YouTube source iGC1KVUU5sI (title not independently retrieved)** — creator not independently retrieved — publication date unknown. [Direct video](https://www.youtube.com/watch?v=iGC1KVUU5sI). Evidence: recent creator-video example of promotional/certainty framing. Mapping: negative example only; it is not a rule, target source, or probability estimate. Caveat: publication date and metadata unknown; not used as strategy proof.
+6. **YouTube source 2Yni82DI-qQ (title not independently retrieved)** — creator not independently retrieved — publication date unknown. [Direct video](https://www.youtube.com/watch?v=2Yni82DI-qQ). Evidence: recent creator-video example of promotional/certainty framing. Mapping: negative example only; it is not a rule, target source, or probability estimate. Caveat: publication date and metadata unknown; not used as strategy proof.
+7. **DataDash X status 2105311203123695819** — DataDash — publication date not independently retrieved. [Direct post](https://x.com/datadashpro/status/2105311203123695819). Evidence: social-post research example, not a strategy input. Mapping: documents social-research access/framing limits; contributes no rule, score, or action. Caveat: X access/retrieval can vary by viewer/session; text and date are not independently retrieved here.
+8. **Paul X status 2100975556300767234** — Paul Sampson — publication date not independently retrieved. [Direct post](https://x.com/paulsampson0x/status/2100975556300767234). Evidence: social-post research example, not a strategy input. Mapping: documents social-research access/framing limits; contributes no rule, score, or action. Caveat: X access/retrieval can vary by viewer/session; text and date are not independently retrieved here.
+9. **Crypto Fear & Greed Index** — Alternative.me — publication date not stated. [Official page](https://alternative.me/crypto/fear-and-greed-index). Evidence: official public Fear & Greed Index page. Mapping: attribution for the context-only value, classification, timestamp, age, and cadence-qualified direction; it cannot change action or action score. Caveat: live content and availability can change; it is not strategy proof.
+10. **Fear & Greed Index API** — Alternative.me — publication date not stated. [Official API](https://api.alternative.me/fng/?limit=7&format=json). Evidence: official public endpoint for the seven fetched records. Mapping: operational context source only; records require freshness and cadence validation before a seven-day direction is labeled. Caveat: live API timing and payload availability can vary; missing/stale/irregular records cannot affect action.
