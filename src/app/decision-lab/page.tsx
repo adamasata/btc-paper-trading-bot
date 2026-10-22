@@ -6,88 +6,38 @@ import type { DecisionPayload } from '@/lib/decision-service';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
+const money = (value: number | null) => value === null ? '—' : usd.format(value);
+const formatUtc = (value: number | null) => value === null ? '—' : `${dateTime.format(value)} UTC`;
+const formatAge = (value: number | null) => value === null ? '—' : `${Math.floor(value / 3_600_000)}h ${Math.floor((value % 3_600_000) / 60_000)}m`;
 
-function money(value: number | null): string {
-  return value === null ? '—' : usd.format(value);
-}
-
-function formatUtc(value: number | null): string {
-  return value === null ? '—' : `${dateTime.format(value)} UTC`;
-}
-
-function formatAge(value: number | null): string {
-  if (value === null) return '—';
-  const hours = Math.floor(value / 3_600_000);
-  const minutes = Math.floor((value % 3_600_000) / 60_000);
-  return `${hours}h ${minutes}m`;
-}
+function Metric({ label, value }: { label: string; value: string }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
 
 export default function DecisionLab() {
   const [payload, setPayload] = useState<DecisionPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  async function refresh(): Promise<void> {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/decision', { cache: 'no-store' });
-      const body: DecisionPayload | { error: string } = await response.json();
-      if (!response.ok || 'error' in body) throw new Error('error' in body ? body.error : 'Decision Lab request failed.');
-      setPayload(body);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to load the Decision Lab.');
-    } finally {
-      setLoading(false);
-    }
+  async function refresh() {
+    setLoading(true); setError(null);
+    try { const response = await fetch('/api/decision', { cache: 'no-store' }); const body: DecisionPayload | { error: string } = await response.json(); if (!response.ok || 'error' in body) throw new Error('error' in body ? body.error : 'Decision Lab request failed.'); setPayload(body); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to load the Decision Lab.'); }
+    finally { setLoading(false); }
   }
-
   useEffect(() => { void refresh(); }, []);
-
   const decision = payload?.decision;
-  return (
-    <main className="decision-lab">
-      <nav>
-        <Link className="brand" href="/" aria-label="Lumen home"><span className="brand-mark">L</span> LUMEN</Link>
-        <span className="nav-note">Read-only research · BTC/USD</span>
-        <Link className="lab-home-link" href="/">Paper replay</Link>
-        <Link className="methodology-link" href="/decision-methodology">Methodology &amp; sources</Link>
-        <button className="run-button" onClick={() => void refresh()} disabled={loading}>{loading ? 'Refreshing research…' : 'Refresh decision'}</button>
-      </nav>
-
-      <section className="lab-hero">
-        <div>
-          <p className="eyebrow">Decision Lab · v1</p>
-          <h1>Rules first.<br /><em>Conviction second.</em></h1>
-          <p className="lede">A read-only BTC/USD research slice using completed public candles. It does not place, alter, or automate trades; the existing replay and bot behavior remain separate.</p>
-        </div>
-        <aside className="lab-disclosure"><strong>Research only</strong><span>Action-rule coverage is not probability, investment advice, or a live-trading signal.</span></aside>
-      </section>
-
-      {error && <section className="error-box" role="alert"><strong>Decision Lab unavailable.</strong><span>{error}</span><button onClick={() => void refresh()}>Try again</button></section>}
-      {loading && !decision && <section className="lab-loading">Loading required completed candle data. Required candle data that is missing or stale fails closed to NO TRADE; optional Fear &amp; Greed context is disclosed separately and cannot change the action.</section>}
-
-      {decision && <>
-        <section className={`decision-hero ${decision.action === 'ENTER LONG' ? 'decision-enter' : 'decision-no-trade'}`} aria-label="Current Decision">
-          <div><p>Current Decision</p><h2>{decision.action}</h2><span>{decision.actionReason}</span></div>
-          <div className="coverage"><p>Action-rule score</p><strong>{decision.evidenceScore.passed}/{decision.evidenceScore.total}</strong><span>{decision.evidenceScore.label}</span></div>
-          <div className="decision-stamp"><p>Generated</p><strong>{formatUtc(new Date(payload.generatedAt).getTime())}</strong><span>{payload.source} public data</span></div>
-        </section>
-
-        <section className="lab-grid">
-          <article className="lab-panel"><p className="eyebrow">Regime</p><h2>{decision.regime.bullish ? 'Bullish daily regime' : 'Regime not confirmed'}</h2><dl className="lab-metrics"><div><dt>COMPLETED DAILY CLOSE</dt><dd>{money(decision.regime.dailyClose)}</dd></div><div><dt>21-DAY SMA</dt><dd>{money(decision.regime.sma21)}</dd></div><div><dt>21-DAY EMA</dt><dd>{money(decision.regime.ema21)}</dd></div><div><dt>100-DAY SMA CONTEXT</dt><dd>{money(decision.regime.sma100)}</dd></div><div><dt>200-DAY SMA CONTEXT</dt><dd>{money(decision.regime.sma200)}</dd></div></dl><p className="lab-copy">{decision.regime.context}</p></article>
-
-          <article className="lab-panel"><p className="eyebrow">Setup / proposed execution</p><h2>{decision.setup.pivotName ?? 'No eligible frozen pivot'}</h2><dl className="lab-metrics"><div><dt>FROZEN PIVOT</dt><dd>{money(decision.setup.pivot)}</dd></div><div><dt>14H ATR</dt><dd>{money(decision.setup.atr14)}</dd></div><div><dt>21H EMA CONTEXT</dt><dd>{money(decision.setup.ema21h)}</dd></div><div><dt>CONFIRMED RECLAIM</dt><dd>{decision.setup.confirmedReclaim ? 'Yes' : 'No'}</dd></div><div><dt>NO-CHASE FILTER</dt><dd>{decision.setup.noChase ? 'Pass' : 'Fail'}</dd></div><div><dt>ENTRY MODEL</dt><dd>{decision.setup.executionModel}</dd></div><div><dt>PROPOSED EXECUTION</dt><dd>{formatUtc(decision.setup.proposedExecutionAt)}</dd></div><div><dt>PROPOSED INVALIDATION</dt><dd>{money(decision.setup.proposedInvalidation)}</dd></div><div><dt>RISK / +1R / +2R</dt><dd>Calculate at actual fill</dd></div><div><dt>PROPOSAL EXPIRY</dt><dd>{formatUtc(decision.setup.expiry)}</dd></div></dl><p className="lab-copy">{decision.setup.executionInstruction}</p></article>
-
-          <article className="lab-panel"><p className="eyebrow">Fear &amp; Greed context</p><h2>{decision.fearGreed.value === null ? 'Unavailable' : `${decision.fearGreed.value} · ${decision.fearGreed.classification}`}</h2><dl className="lab-metrics"><div><dt>SOURCE TIMESTAMP</dt><dd>{formatUtc(decision.fearGreed.sourceTimestamp)}</dd></div><div><dt>DATA AGE</dt><dd>{formatAge(decision.fearGreed.ageMs)}</dd></div><div><dt>7-DAY DIRECTION</dt><dd>{decision.fearGreed.direction7d}</dd></div><div><dt>CONTEXT HEALTH</dt><dd>{decision.contextHealth.available ? 'Available' : 'Unavailable'}</dd></div></dl><p className="context-badge">{decision.contextHealth.summary}</p><a className="source-link" href={decision.fearGreed.sourceUrl} target="_blank" rel="noreferrer">Alternative.me Fear &amp; Greed Index ↗</a></article>
-        </section>
-
-        <section className="lab-panel ledger-panel"><header><div><p className="eyebrow">Action evidence ledger</p><h2>Every actioning deterministic rule</h2></div><span className={decision.data.dataQualityPass ? 'quality-pass' : 'quality-fail'}>{decision.data.dataQualityPass ? 'Required candle data pass' : 'Fail closed'}</span></header><div className="ledger-table"><table><thead><tr><th>RULE</th><th>STATUS</th><th>EVIDENCE</th></tr></thead><tbody>{decision.actionRules.map((rule) => <tr key={rule.id}><td>{rule.label}</td><td><span className={rule.passed ? 'rule-pass' : 'rule-fail'}>{rule.passed ? 'Passed' : 'Failed'}</span></td><td>{rule.detail}</td></tr>)}</tbody></table></div></section>
-
-        <section className="lab-panel ledger-panel context-ledger"><header><div><p className="eyebrow">Optional context health</p><h2>Fear &amp; Greed is not action evidence</h2></div><span className={decision.contextHealth.available ? 'quality-pass' : 'quality-fail'}>{decision.contextHealth.available ? 'Context available' : 'Context unavailable'}</span></header><div className="ledger-table"><table><thead><tr><th>CONTEXT CHECK</th><th>STATUS</th><th>EVIDENCE</th></tr></thead><tbody>{decision.contextHealth.rules.map((rule) => <tr key={rule.id}><td>{rule.label}</td><td><span className={rule.passed ? 'rule-pass' : 'rule-fail'}>{rule.passed ? 'Passed' : 'Unavailable'}</span></td><td>{rule.detail}</td></tr>)}</tbody></table></div></section>
-
-        <section className="lab-notes"><div><p className="eyebrow">Methodology / Source Inspiration</p><h2>Frameworks, not copied calls.</h2></div><div><p>V1 independently operationalizes a 21-day moving-average regime, frozen high-timeframe close-mean pivots, and completed-candle confirmation. The 21-hour EMA and Fear &amp; Greed are context only. Creator references informed research questions, not discretionary trade calls.</p><p>It never automates creator price targets, harmonics, clickbait titles, or social sentiment. Content can contain commercial incentives, hindsight framing, selection bias, and incomplete risk disclosure. Read the deployed <Link href="/decision-methodology">methodology and auditable source registry</Link>; the repository registry remains in <code>docs/decision-methodology.md</code>.</p></div></section>
-      </>}
-    </main>
-  );
+  const statusClass = decision?.setup.executionStatus === 'CURRENT' ? 'status-current' : decision?.setup.executionStatus === 'EXPIRED' ? 'status-expired' : 'status-rejected';
+  return <main className="decision-lab">
+    <nav className="site-nav" aria-label="Primary navigation"><Link className="brand" href="/" aria-label="Lumen home"><span className="brand-mark">L</span><span>LUMEN</span></Link><span className="nav-context">BTC/USD research</span><div className="nav-links"><Link href="/">Paper replay</Link><Link href="/decision-methodology">Methodology</Link></div><button className="button button-primary" onClick={() => void refresh()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh decision'}</button></nav>
+    <section className="hero lab-hero" aria-labelledby="lab-title"><div><p className="eyebrow">Decision Lab · v1</p><h1 id="lab-title">Evidence before<br /><em>execution.</em></h1><p className="lede">A read-only BTC/USD research slice using completed public candles. It never places, alters, or automates trades.</p></div><aside className="status-card"><span className="status-dot" /><div><p className="eyebrow">Research boundary</p><strong>Rules are not a prediction</strong><small>Coverage is not probability, advice, or a live-trading signal.</small></div></aside></section>
+    {error && <section className="notice notice-error" role="alert"><div><strong>Decision Lab unavailable</strong><span>{error}</span></div><button className="button button-secondary" onClick={() => void refresh()}>Try again</button></section>}
+    {loading && !decision && <section className="loading-state" aria-live="polite"><span className="spinner spinner-dark" /> <div><strong>Loading completed public candle data</strong><p>Missing or stale required candles fail closed to NO TRADE. Fear &amp; Greed remains optional context.</p></div></section>}
+    {decision && <>
+      <section className={`decision-banner ${decision.action === 'ENTER LONG' ? 'decision-enter' : 'decision-no-trade'}`} aria-label="Current decision"><div><p className="eyebrow">Current decision</p><h2>{decision.action}</h2><p>{decision.actionReason}</p></div><div><p className="eyebrow">Execution status</p><span className={`status-chip ${statusClass}`}>{decision.setup.executionStatus}</span><small>{decision.setup.executionStatus === 'CURRENT' ? 'Observed at this exact UTC hour boundary' : 'No current actioning execution'}</small></div><div><p className="eyebrow">Rule coverage</p><strong>{decision.evidenceScore.passed}/{decision.evidenceScore.total}</strong><small>{decision.evidenceScore.label}</small></div><div><p className="eyebrow">Generated</p><strong className="timestamp">{formatUtc(new Date(payload.generatedAt).getTime())}</strong><small>{payload.source} public data</small></div></section>
+      <section className="lab-grid"><article className="surface lab-panel"><p className="eyebrow">Daily regime</p><h2>{decision.regime.bullish ? 'Bullish regime' : 'Regime not confirmed'}</h2><dl className="metric-list"><Metric label="Completed daily close" value={money(decision.regime.dailyClose)} /><Metric label="21-day SMA" value={money(decision.regime.sma21)} /><Metric label="21-day EMA" value={money(decision.regime.ema21)} /><Metric label="100-day context" value={money(decision.regime.sma100)} /><Metric label="200-day context" value={money(decision.regime.sma200)} /></dl><p className="lab-copy">{decision.regime.context}</p></article>
+      <article className="surface lab-panel"><p className="eyebrow">Setup / execution</p><h2>{decision.setup.pivotName ?? 'No eligible pivot'}</h2><dl className="metric-list"><Metric label="Frozen pivot" value={money(decision.setup.pivot)} /><Metric label="14h ATR" value={money(decision.setup.atr14)} /><Metric label="21h EMA context" value={money(decision.setup.ema21h)} /><Metric label="Confirmed reclaim" value={decision.setup.confirmedReclaim ? 'Yes' : 'No'} /><Metric label="No-chase filter" value={decision.setup.noChase ? 'Pass' : 'Fail'} /><Metric label="Observed execution open" value={money(decision.setup.observedExecutionOpen)} /><Metric label="Execution instant" value={formatUtc(decision.setup.executionAt)} /><Metric label="Expiry" value={formatUtc(decision.setup.expiry)} /></dl><p className="lab-copy">{decision.setup.executionInstruction}</p></article>
+      <article className="surface lab-panel"><p className="eyebrow">Fear &amp; Greed context</p><h2>{decision.fearGreed.value === null ? 'Unavailable' : `${decision.fearGreed.value} · ${decision.fearGreed.classification}`}</h2><dl className="metric-list"><Metric label="Source timestamp" value={formatUtc(decision.fearGreed.sourceTimestamp)} /><Metric label="Data age" value={formatAge(decision.fearGreed.ageMs)} /><Metric label="7-day direction" value={decision.fearGreed.direction7d} /><Metric label="Context health" value={decision.contextHealth.available ? 'Available' : 'Unavailable'} /></dl><p className="context-copy">{decision.contextHealth.summary}</p><a className="text-link" href={decision.fearGreed.sourceUrl} target="_blank" rel="noreferrer">Alternative.me index <span>↗</span></a></article></section>
+      <section className="surface ledger-panel"><header className="section-header"><div><p className="eyebrow">Action evidence ledger</p><h2>Every deterministic action rule</h2></div><span className={`status-chip ${decision.data.dataQualityPass ? 'status-current' : 'status-rejected'}`}>{decision.data.dataQualityPass ? 'Candle data pass' : 'Fail closed'}</span></header><div className="table-wrap"><table><thead><tr><th>Rule</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{decision.actionRules.map((rule) => <tr key={rule.id}><td>{rule.label}</td><td><span className={`status-chip ${rule.passed ? 'status-current' : 'status-rejected'}`}>{rule.passed ? 'Passed' : 'Failed'}</span></td><td>{rule.detail}</td></tr>)}</tbody></table></div></section>
+      <section className="surface ledger-panel"><header className="section-header"><div><p className="eyebrow">Optional context health</p><h2>Fear &amp; Greed is never action evidence</h2></div><span className={`status-chip ${decision.contextHealth.available ? 'status-current' : 'status-neutral'}`}>{decision.contextHealth.available ? 'Available' : 'Unavailable'}</span></header><div className="table-wrap"><table><thead><tr><th>Context check</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{decision.contextHealth.rules.map((rule) => <tr key={rule.id}><td>{rule.label}</td><td><span className={`status-chip ${rule.passed ? 'status-current' : 'status-neutral'}`}>{rule.passed ? 'Passed' : 'Unavailable'}</span></td><td>{rule.detail}</td></tr>)}</tbody></table></div></section>
+      <section className="method-note"><p className="eyebrow">Methodology</p><p>V1 operationalizes moving-average regime, frozen close-mean pivots, and completed-candle confirmation. Fear &amp; Greed and the 21-hour EMA are context only. See the <Link href="/decision-methodology">auditable methodology and source registry</Link>.</p></section>
+    </>}
+  </main>;
 }
