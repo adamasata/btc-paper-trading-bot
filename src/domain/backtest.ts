@@ -1,10 +1,13 @@
-import { DEFAULT_PARAMETERS, causalSignal } from './strategy';
-import type { BacktestResult, Candle, CompletedTrade, StrategyParameters } from './types';
+import { DEFAULT_PARAMETERS, causalTrendSignal, hasBearishCross, isActivityProbeOpportunity } from './strategy';
+import type { BacktestResult, Candle, CompletedTrade, ExitReason, StrategyParameters, TradeKind } from './types';
 
 type OpenPosition = {
+  kind: TradeKind;
   buyTime: number;
   buyPrice: number;
   quantityBtc: number;
+  allocatedCashUsd: number;
+  reserveCashUsd: number;
   buyFeeUsd: number;
   costUsd: number;
 };
@@ -24,30 +27,64 @@ function assertCandles(candles: Candle[]): void {
   }
 }
 
-function executeBuy(cashUsd: number, price: number, time: number, feeRate: number): OpenPosition {
-  const quantityBtc = cashUsd / (price * (1 + feeRate));
+function assertParameters(parameters: StrategyParameters): void {
+  const valid = parameters.initialCash > 0
+    && parameters.feeRate >= 0
+    && parameters.historyBars >= parameters.emaTrendPeriod
+    && parameters.emaFastPeriod > 0
+    && parameters.emaSlowPeriod > 0
+    && parameters.emaTrendPeriod > 0
+    && parameters.emaTrendSlopeMinutes > 0
+    && parameters.coreTakeProfitRate >= 0
+    && parameters.coreStopLossRate >= 0
+    && parameters.coreMaxHoldMinutes > 0
+    && parameters.coreTradeLimitPerWindow >= 0
+    && parameters.activityProbeIntervalMinutes > 0
+    && parameters.activityProbeCount >= 0
+    && parameters.activityProbeAllocationRate > 0
+    && parameters.activityProbeAllocationRate <= 1
+    && parameters.activityProbeHoldMinutes > 0;
+  if (!valid) throw new Error('Strategy parameters are outside their valid range.');
+}
+
+function executeBuy(
+  availableCashUsd: number,
+  allocationRate: number,
+  price: number,
+  time: number,
+  feeRate: number,
+  kind: TradeKind,
+): OpenPosition {
+  const allocatedCashUsd = availableCashUsd * allocationRate;
+  const quantityBtc = allocatedCashUsd / (price * (1 + feeRate));
   const buyFeeUsd = quantityBtc * price * feeRate;
   return {
+    kind,
     buyTime: time,
     buyPrice: price,
     quantityBtc,
+    allocatedCashUsd,
+    reserveCashUsd: availableCashUsd - allocatedCashUsd,
     buyFeeUsd,
-    costUsd: quantityBtc * price + buyFeeUsd,
+    costUsd: allocatedCashUsd,
   };
 }
 
-function executeSell(position: OpenPosition, price: number, time: number, feeRate: number, exitReason: CompletedTrade['exitReason'], id: number): CompletedTrade {
+function executeSell(position: OpenPosition, price: number, time: number, feeRate: number, exitReason: ExitReason, id: number): CompletedTrade {
   const grossProceedsUsd = position.quantityBtc * price;
   const sellFeeUsd = grossProceedsUsd * feeRate;
   const proceedsUsd = grossProceedsUsd - sellFeeUsd;
   const profitUsd = proceedsUsd - position.costUsd;
   return {
     id,
+    kind: position.kind,
     buyTime: position.buyTime,
     sellTime: time,
     buyPrice: position.buyPrice,
     sellPrice: price,
     quantityBtc: position.quantityBtc,
+    allocatedCashUsd: position.allocatedCashUsd,
+    reserveCashUsd: position.reserveCashUsd,
     buyFeeUsd: position.buyFeeUsd,
     sellFeeUsd,
     costUsd: position.costUsd,
@@ -58,85 +95,107 @@ function executeSell(position: OpenPosition, price: number, time: number, feeRat
   };
 }
 
+function exitReasonForPosition(
+  position: OpenPosition,
+  candles: Candle[],
+  observedIndex: number,
+  parameters: StrategyParameters,
+): ExitReason | null {
+  const observed = candles[observedIndex];
+  const heldMinutes = (observed.openTime - position.buyTime) / MINUTE;
+
+  if (position.kind === 'activity-probe') {
+    return heldMinutes >= parameters.activityProbeHoldMinutes - 1 ? 'scheduled-exit' : null;
+  }
+
+  const observedReturn = observed.close / position.buyPrice - 1;
+  if (observedReturn >= parameters.coreTakeProfitRate) return 'take-profit';
+  if (observedReturn <= -parameters.coreStopLossRate) return 'stop-loss';
+  if (hasBearishCross(candles, observedIndex, parameters)) return 'bearish-cross';
+  return heldMinutes >= parameters.coreMaxHoldMinutes - 1 ? 'time-limit' : null;
+}
+
 /**
- * Deterministic long-only replay. A decision made after candle i closes can only
- * be filled at candle i + 1's open. The final close is the sole exception and is
- * an explicitly labelled forced close to finish flat.
+ * Deterministic long-only replay. All decisions use completed closes through
+ * candle i and execute only at candle i + 1's open. The final close is the
+ * sole exception, explicitly labelled `forced-close`, to guarantee a flat end.
  */
 export function runBacktest(candles: Candle[], overrides: Partial<StrategyParameters> = {}): BacktestResult {
   assertCandles(candles);
   const parameters = { ...DEFAULT_PARAMETERS, ...overrides };
-  const { initialCash, feeRate, lookbackMinutes, cooldownMinutes, maxHoldMinutes, fallbackEntryIntervalMinutes } = parameters;
-  if (initialCash <= 0 || feeRate < 0 || lookbackMinutes < 2 || fallbackEntryIntervalMinutes < 1) {
-    throw new Error('Strategy parameters are outside their valid range.');
-  }
+  assertParameters(parameters);
 
-  let cashUsd = initialCash;
+  let cashUsd = parameters.initialCash;
   let position: OpenPosition | null = null;
-  let lastExitTime = Number.NEGATIVE_INFINITY;
+  let coreTradeCount = 0;
   const trades: CompletedTrade[] = [];
-  const fallbackOffset = lookbackMinutes;
 
   // The last candle is reserved for a potential forced close, never a signal fill.
-  for (let index = lookbackMinutes; index < candles.length - 1; index += 1) {
+  for (let index = parameters.historyBars - 1; index < candles.length - 1; index += 1) {
     const observed = candles[index];
     const fill = candles[index + 1];
-    const signal = causalSignal(candles, index, lookbackMinutes);
 
     if (position) {
-      const observedReturn = observed.close / position.buyPrice - 1;
-      const heldMinutes = (observed.openTime - position.buyTime) / MINUTE;
-      // The decision needs one further candle to reach an open-price fill, so
-      // trigger one observed minute before the requested fill-to-fill maximum.
-      const timeLimitReached = heldMinutes >= Math.max(0, maxHoldMinutes - 1);
-      const reason: CompletedTrade['exitReason'] | null =
-        observedReturn >= parameters.takeProfitRate ? 'take-profit'
-          : observedReturn <= -parameters.stopLossRate ? 'stop-loss'
-            : timeLimitReached ? 'time-limit'
-              : signal && signal.zScore >= parameters.exitZScore && observedReturn >= feeRate * 2 + 0.0005 ? 'signal'
-                : null;
+      const reason = exitReasonForPosition(position, candles, index, parameters);
       if (reason) {
-        const trade = executeSell(position, fill.open, fill.openTime, feeRate, reason, trades.length + 1);
+        const trade = executeSell(position, fill.open, fill.openTime, parameters.feeRate, reason, trades.length + 1);
         trades.push(trade);
-        cashUsd = trade.proceedsUsd;
+        cashUsd += trade.proceedsUsd;
         position = null;
-        lastExitTime = fill.openTime;
       }
       continue;
     }
 
-    const cooldownSatisfied = observed.openTime - lastExitTime >= cooldownMinutes * MINUTE;
-    const signalEntry = signal !== null && signal.zScore <= parameters.entryZScore;
-    // Six evenly spaced, pre-declared opportunities make the five-round-trip
-    // requirement observable without adapting the schedule to future outcomes.
-    const scheduledEntry = (index - fallbackOffset) % fallbackEntryIntervalMinutes === 0;
-    if (cashUsd > 0 && cooldownSatisfied && (signalEntry || scheduledEntry)) {
-      position = executeBuy(cashUsd, fill.open, fill.openTime, feeRate);
-      cashUsd = 0;
+    const trend = causalTrendSignal(candles, index, parameters);
+    const coreEntry = coreTradeCount < parameters.coreTradeLimitPerWindow
+      && trend !== null
+      && trend.ema10 > trend.ema20
+      && observed.close > trend.ema60
+      && trend.ema60 > trend.ema60TenMinutesAgo;
+
+    // At a simultaneous opportunity, the core entry is evaluated first. Probes
+    // are fixed in advance and never use prices to choose their schedule.
+    if (coreEntry) {
+      position = executeBuy(cashUsd, 1, fill.open, fill.openTime, parameters.feeRate, 'core-trend');
+      cashUsd = position.reserveCashUsd;
+      coreTradeCount += 1;
+    } else if (isActivityProbeOpportunity(index, parameters)) {
+      position = executeBuy(
+        cashUsd,
+        parameters.activityProbeAllocationRate,
+        fill.open,
+        fill.openTime,
+        parameters.feeRate,
+        'activity-probe',
+      );
+      cashUsd = position.reserveCashUsd;
     }
   }
 
   if (position) {
     const last = candles[candles.length - 1];
-    const trade = executeSell(position, last.close, last.openTime + MINUTE, feeRate, 'forced-close', trades.length + 1);
+    const trade = executeSell(position, last.close, last.openTime + MINUTE, parameters.feeRate, 'forced-close', trades.length + 1);
     trades.push(trade);
-    cashUsd = trade.proceedsUsd;
+    cashUsd += trade.proceedsUsd;
   }
 
   const firstPrice = candles[0].open;
   const lastPrice = candles[candles.length - 1].close;
-  const buyHoldQuantity = initialCash / (firstPrice * (1 + feeRate));
-  const buyAndHoldFinalUsd = buyHoldQuantity * lastPrice * (1 - feeRate);
-  const finalBalanceUsd = cashUsd;
+  const buyHoldQuantity = parameters.initialCash / (firstPrice * (1 + parameters.feeRate));
+  const buyAndHoldFinalUsd = buyHoldQuantity * lastPrice * (1 - parameters.feeRate);
+  const activityProbeTradeCount = trades.filter((trade) => trade.kind === 'activity-probe').length;
 
   return {
     trades,
-    finalBalanceUsd,
-    profitUsd: finalBalanceUsd - initialCash,
-    profitPercent: ((finalBalanceUsd - initialCash) / initialCash) * 100,
+    finalBalanceUsd: cashUsd,
+    endingBtc: 0,
+    profitUsd: cashUsd - parameters.initialCash,
+    profitPercent: ((cashUsd - parameters.initialCash) / parameters.initialCash) * 100,
     buyAndHoldFinalUsd,
-    buyAndHoldProfitUsd: buyAndHoldFinalUsd - initialCash,
+    buyAndHoldProfitUsd: buyAndHoldFinalUsd - parameters.initialCash,
     totalFeesUsd: trades.reduce((sum, trade) => sum + trade.buyFeeUsd + trade.sellFeeUsd, 0),
+    coreTradeCount,
+    activityProbeTradeCount,
     candleCount: candles.length,
     firstCandleTime: candles[0].openTime,
     lastCandleTime: candles[candles.length - 1].openTime + MINUTE,

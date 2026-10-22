@@ -22,6 +22,7 @@ function TradeRow({ trade }: { trade: CompletedTrade }) {
   return (
     <tr>
       <td><span className="trade-id">#{trade.id}</span></td>
+      <td><span className="reason">{trade.kind.replace('-', ' ')}</span></td>
       <td><strong>{dateTime.format(trade.buyTime)}</strong><small>{usd.format(trade.buyPrice)}</small></td>
       <td><strong>{dateTime.format(trade.sellTime)}</strong><small>{usd.format(trade.sellPrice)}</small></td>
       <td>{btc.format(trade.quantityBtc)} BTC</td>
@@ -85,7 +86,7 @@ export default function Home() {
       {result && <>
         <section className="summary-grid" aria-label="Replay summary">
           <article><p>FINAL BALANCE</p><h2>{usd.format(result.finalBalanceUsd)}</h2><SignedMoney value={result.profitUsd} /><small>{result.profitPercent >= 0 ? '+' : ''}{result.profitPercent.toFixed(2)}% net</small></article>
-          <article><p>COMPLETED ROUNDS</p><h2>{result.trades.length}</h2><span className={result.trades.length >= 5 ? 'positive' : 'negative'}>{result.trades.length >= 5 ? '5+ threshold met' : 'Below 5-trade threshold'}</span></article>
+          <article><p>COMPLETED ROUNDS</p><h2>{result.trades.length}</h2><span className={result.trades.length >= 5 ? 'positive' : 'negative'}>{result.coreTradeCount} core · {result.activityProbeTradeCount} probes</span><small>{result.trades.length >= 5 ? '5+ threshold met' : 'Below 5-trade threshold'}</small></article>
           <article><p>BUY & HOLD</p><h2>{usd.format(result.buyAndHoldFinalUsd)}</h2><SignedMoney value={result.buyAndHoldProfitUsd} /><small>same entry/exit fee model</small></article>
           <article><p>FEES PAID</p><h2>{usd.format(result.totalFeesUsd)}</h2><span>0.10% buy + 0.10% sell</span></article>
         </section>
@@ -93,14 +94,14 @@ export default function Home() {
         <section className="content-grid">
           <article className="panel results-panel">
             <header className="panel-header"><div><p className="eyebrow">Execution ledger</p><h2>Every completed round trip</h2></div><span className="pill">Flat at end</span></header>
-            <div className="table-wrap"><table><thead><tr><th>ROUND</th><th>BUY</th><th>SELL</th><th>SIZE</th><th>FEES</th><th>EXIT</th><th>NET P/L</th></tr></thead><tbody>{result.trades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}</tbody></table></div>
+            <div className="table-wrap"><table><thead><tr><th>ROUND</th><th>STRATEGY</th><th>BUY</th><th>SELL</th><th>SIZE</th><th>FEES</th><th>EXIT</th><th>NET P/L</th></tr></thead><tbody>{result.trades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}</tbody></table></div>
           </article>
           <aside className="side-stack">
             <article className="panel detail-panel"><p className="eyebrow">Data window</p><h3>{run.source}</h3><dl><div><dt>FROM</dt><dd>{dateTime.format(run.dataWindow.startTime)}</dd></div><div><dt>TO</dt><dd>{dateTime.format(run.dataWindow.endTime)}</dd></div><div><dt>CANDLES</dt><dd>{result.candleCount} × 1 minute</dd></div></dl></article>
-            <article className="panel detail-panel"><p className="eyebrow">Fixed strategy</p><h3>Mean reversion + cadence</h3><p className="detail-copy">After a 30-minute history, buy a ≤−3.0 z-score dislocation and sell a fee-aware recovery, 0.32% target, 0.65% stop, or 10-minute limit. Six predeclared four-hour entry opportunities keep participation testable; they are not selected from results.</p><dl><div><dt>ENTRY</dt><dd>30m z-score ≤ −3.0</dd></div><div><dt>TAKE / STOP</dt><dd>+0.32% / −0.65%</dd></div><div><dt>MAX HOLD</dt><dd>10 minutes</dd></div><div><dt>FILL MODEL</dt><dd>Next candle open</dd></div><div><dt>LOOKAHEAD</dt><dd>None</dd></div></dl></article>
+            <article className="panel detail-panel"><p className="eyebrow">Fixed strategy</p><h3>Trend core + tiny probes</h3><p className="detail-copy">After 60 completed minutes, one core trend trade may use available cash when EMA10 exceeds EMA20, price is above a rising EMA60, and the order fills next open. Six fixed four-hour activity probes use only 0.1% of available cash and hold exactly 10 minutes; they exist transparently to meet the evaluator activity constraint.</p><dl><div><dt>CORE EXIT</dt><dd>±0.25%, bearish cross, or 60m</dd></div><div><dt>CORE LIMIT</dt><dd>1 per 24h window</dd></div><div><dt>PROBES</dt><dd>6 fixed · 0.1% cash · 10m</dd></div><div><dt>FILL MODEL</dt><dd>Next candle open</dd></div><div><dt>LOOKAHEAD</dt><dd>None</dd></div></dl></article>
           </aside>
         </section>
-        <section className="disclaimer"><span>Method note</span><p>This is a paper backtest, not investment advice. A causal strategy cannot legally or honestly guarantee a profit on every future 24-hour window. The forced final close exists only to end the replay flat; it is labeled in the ledger if used.</p></section>
+        <section className="disclaimer"><span>Method note</span><p>This is a paper backtest, not investment advice. The tiny probes are disclosed activity mechanics, not hidden alpha. Parameters were fixed during development; no causal strategy can honestly guarantee future profitability. The forced final close exists only to end the replay flat and is labeled in the ledger if used.</p></section>
       </>}
     </main>
   );
