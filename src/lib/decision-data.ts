@@ -1,4 +1,4 @@
-import type { FearGreedValue, LabCandle } from '@/domain/decision';
+import type { FearGreedValue, LabCandle, ObservedHourlyOpen } from '@/domain/decision';
 
 const HOUR = 60 * 60 * 1_000;
 const DAY = 24 * HOUR;
@@ -10,6 +10,8 @@ export type DecisionMarketData = {
   daily: LabCandle[];
   hourly: LabCandle[];
   fearGreed: FearGreedValue[];
+  /** Present only when the request lands exactly on a UTC hourly boundary. */
+  executionOpen: ObservedHourlyOpen | null;
 };
 
 type BinanceLabKline = [number, string, string, string, string, string, number, ...unknown[]];
@@ -59,6 +61,22 @@ export function validateCompletedLabCandles(candles: LabCandle[], intervalMs: nu
     if (candles[index].openTime - candles[index - 1].openTime !== intervalMs) throw new Error('Market data has a gap in the required completed candle range.');
   }
   return candles;
+}
+
+/**
+ * The in-progress hourly candle is otherwise deliberately excluded. Its open
+ * is usable only at the instant a new UTC hour begins: it is observable then,
+ * while its later high, low, and close remain unavailable to the evaluator.
+ */
+export function parseObservedHourlyOpenAtBoundary(payload: unknown, now: number): ObservedHourlyOpen | null {
+  if (now % HOUR !== 0 || !Array.isArray(payload)) return null;
+  for (const row of payload as BinanceLabKline[]) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    const openTime = Number(row[0]);
+    const open = Number(row[1]);
+    if (openTime === now && openTime % HOUR === 0 && isPositiveFinite(open)) return { openTime, open };
+  }
+  return null;
 }
 
 export function parseFearGreed(payload: unknown): FearGreedValue[] {
@@ -128,7 +146,13 @@ export async function fetchDecisionMarketData(now = Date.now(), fetcher: typeof 
   // Optional context starts after required validation and never delays a
   // candle-based result. A later request can render its module-local cache.
   const fearGreed = currentFearGreedContext(now, fetcher);
-  return { source: 'Binance.US', daily, hourly, fearGreed };
+  return {
+    source: 'Binance.US',
+    daily,
+    hourly,
+    fearGreed,
+    executionOpen: parseObservedHourlyOpenAtBoundary(hourlyPayload, now),
+  };
 }
 
 export const decisionLabSources = {

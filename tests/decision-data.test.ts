@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearFearGreedContextForTests, fetchDecisionMarketData, parseCompletedBinanceLabCandles, parseFearGreed, validateCompletedLabCandles } from '../src/lib/decision-data';
+import { clearFearGreedContextForTests, fetchDecisionMarketData, parseCompletedBinanceLabCandles, parseFearGreed, parseObservedHourlyOpenAtBoundary, validateCompletedLabCandles } from '../src/lib/decision-data';
 import { clearLatestDecisionCacheForTests, getLatestDecision } from '../src/lib/decision-service';
 
 const HOUR = 60 * 60 * 1_000;
@@ -15,6 +15,13 @@ test('Decision Lab parser keeps completed Binance.US bars and validates contiguo
   assert.deepEqual(candles.map((item) => item.openTime), [HOUR, 2 * HOUR, 3 * HOUR, 4 * HOUR]);
   assert.deepEqual(validateCompletedLabCandles(candles, HOUR, now, 4), candles);
   assert.throws(() => validateCompletedLabCandles([candles[0], candles[2], candles[3]], HOUR, now, 3), /gap/);
+});
+
+test('observed execution open is exposed only at an exact hourly boundary', () => {
+  const payload = [row(4 * HOUR, 123), row(5 * HOUR, 456)];
+  assert.deepEqual(parseObservedHourlyOpenAtBoundary(payload, 5 * HOUR), { openTime: 5 * HOUR, open: 456 });
+  assert.equal(parseObservedHourlyOpenAtBoundary(payload, 5 * HOUR + 1), null);
+  assert.equal(parseObservedHourlyOpenAtBoundary([row(4 * HOUR, 123)], 5 * HOUR), null);
 });
 
 test('Decision Lab parser rejects malformed and invalid candle payloads', () => {
@@ -63,7 +70,7 @@ test('Decision service coalesces cache misses and does not retain a failed refre
     calls += 1;
     requestedAsOf = asOf;
     await new Promise((resolve) => setTimeout(resolve, 5));
-    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [] };
+    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
   };
   const dependencies = { fetchMarket, now: () => currentTime };
   const [first, second] = await Promise.all([getLatestDecision(dependencies), getLatestDecision(dependencies)]);
@@ -80,7 +87,7 @@ test('Decision service coalesces cache misses and does not retain a failed refre
   const flaky = async () => {
     attempts += 1;
     if (attempts === 1) throw new Error('temporary outage');
-    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [] };
+    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
   };
   await assert.rejects(getLatestDecision({ fetchMarket: flaky, now: () => currentTime }), /temporary outage/);
   await getLatestDecision({ fetchMarket: flaky, now: () => currentTime });

@@ -12,6 +12,12 @@ export type FearGreedValue = {
   timestamp: number;
 };
 
+/** The only live value accepted by the evaluator: an hourly open observable at asOf. */
+export type ObservedHourlyOpen = {
+  openTime: number;
+  open: number;
+};
+
 export type DecisionRule = {
   id: string;
   label: string;
@@ -24,6 +30,7 @@ export type DecisionInput = {
   hourly: LabCandle[];
   fearGreed: FearGreedValue[];
   asOf: number;
+  executionOpen?: ObservedHourlyOpen | null;
 };
 
 export type DecisionOutput = {
@@ -49,7 +56,9 @@ export type DecisionOutput = {
     noChase: boolean;
     volatilityPass: boolean;
     executionModel: 'NEXT HOUR OPEN';
-    proposedExecutionAt: number | null;
+    executionStatus: 'CURRENT' | 'EXPIRED' | 'UNAVAILABLE' | 'REJECTED';
+    executionAt: number | null;
+    observedExecutionOpen: number | null;
     entry: null;
     proposedInvalidation: number | null;
     target1: null;
@@ -229,7 +238,7 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
   // v1. A stale or absent context feed is disclosed, but cannot turn a valid
   // candle-based setup into NO TRADE before walk-forward evidence exists.
   const dataQualityPass = Boolean(dailyHistoryPass && hourlyHistoryPass && dailyFresh && hourlyFresh);
-  const actionRules = [
+  const setupRules = [
     toRule('daily-history', '220+ contiguous completed daily candles with 21/100/200-day context', dailyHistoryPass, `${daily.length} usable completed daily candles; trailing 220 are ${dailyHistoryPass ? 'contiguous' : 'not contiguous or insufficient'}.`),
     toRule('daily-freshness', 'Latest daily bar is the latest completed UTC day', Boolean(dailyFresh), latestDaily ? new Date(latestDaily.openTime).toISOString() : 'No usable daily bar.'),
     toRule('hourly-history', '22+ contiguous completed hourly bars for 21-hour EMA and ATR inputs', hourlyHistoryPass, `${hourly.length} usable completed hourly candles; trailing 22 are ${hourlyHistoryPass ? 'contiguous' : 'not contiguous or insufficient'}.`),
@@ -240,14 +249,54 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
     toRule('no-chase', 'Confirming close is within 0.5 ATR above the reclaimed pivot', noChase, pivot && currentPrice !== null && atr14 !== null ? `Distance ${(currentPrice - pivot.value).toFixed(2)}; max ${(NO_CHASE_ATR_MULTIPLIER * atr14).toFixed(2)}.` : 'Requires pivot, completed confirming close, and ATR.'),
     toRule('volatility', '14-hour ATR is no more than 5% of confirming close', volatilityPass, currentPrice !== null && atr14 !== null ? `ATR ${(100 * atr14 / currentPrice).toFixed(2)}% of price.` : 'Requires completed hourly ATR.'),
   ];
+  const setupPassed = setupRules.every((rule) => rule.passed);
+  const candidateExecutionAt = setupPassed && latestHourly ? latestHourly.openTime + HOUR : null;
+  const observedExecutionOpen = input.executionOpen
+    && candidateExecutionAt !== null
+    && input.executionOpen.openTime === candidateExecutionAt
+    && finite(input.executionOpen.open)
+    ? input.executionOpen.open
+    : null;
+  const atExecutionBoundary = candidateExecutionAt !== null && input.asOf === candidateExecutionAt;
+  const executionOpenPass = Boolean(observedExecutionOpen !== null && pivot && atr14 !== null
+    && observedExecutionOpen > pivot.value
+    && observedExecutionOpen - pivot.value <= NO_CHASE_ATR_MULTIPLIER * atr14);
+  const executionStatus = !setupPassed
+    ? 'UNAVAILABLE'
+    : input.asOf > (candidateExecutionAt ?? Infinity)
+      ? 'EXPIRED'
+      : atExecutionBoundary && executionOpenPass
+        ? 'CURRENT'
+        : atExecutionBoundary
+          ? 'REJECTED'
+          : 'UNAVAILABLE';
+  const executionDetail = executionStatus === 'CURRENT'
+    ? `Observed current UTC-hour open ${observedExecutionOpen!.toFixed(2)} at ${new Date(candidateExecutionAt!).toISOString()}; it is above the pivot and within 0.5 ATR.`
+    : executionStatus === 'EXPIRED'
+      ? `The next-open opportunity at ${new Date(candidateExecutionAt!).toISOString()} is in the past; past instructions are not displayed as current proposals.`
+      : executionStatus === 'REJECTED'
+        ? observedExecutionOpen === null
+          ? 'The exact next-hour boundary has no valid observed execution open.'
+          : `Observed current UTC-hour open ${observedExecutionOpen.toFixed(2)} is not above the pivot and within 0.5 ATR.`
+        : candidateExecutionAt !== null
+          ? `Next-open execution is only evaluated at ${new Date(candidateExecutionAt).toISOString()} when that hour's open is observable.`
+          : 'Requires a passing completed-candle setup.';
+  const actionRules = [
+    ...setupRules,
+    toRule('next-open-execution', 'Observed next-hour open is current, above the pivot, and within 0.5 ATR', executionStatus === 'CURRENT', executionDetail),
+  ];
   const action = actionRules.every((rule) => rule.passed) ? 'ENTER LONG' : 'NO TRADE';
-  const proposalAvailable = action === 'ENTER LONG' && pivot && atr14 !== null && latestHourly;
-  const proposedExecutionAt = proposalAvailable ? latestHourly.openTime + HOUR : null;
-  const proposedInvalidation = proposalAvailable ? pivot.value - NO_CHASE_ATR_MULTIPLIER * atr14 : null;
-  const expiry = proposalAvailable ? proposedExecutionAt : null;
-  const executionInstruction = proposalAvailable
-    ? 'Proposed only: at the next hour open, enter only if that observed open remains above the pivot and within 0.5 ATR of it. Use the actual fill to calculate risk and +1R/+2R targets; do not treat the confirming close as a fill.'
-    : 'No proposed next-hour-open trigger. Risk, invalidation, and targets are not calculated without an actioning setup.';
+  const executionAt = executionStatus === 'CURRENT' ? candidateExecutionAt : null;
+  const proposedInvalidation = executionStatus === 'CURRENT' && pivot && atr14 !== null ? pivot.value - NO_CHASE_ATR_MULTIPLIER * atr14 : null;
+  // The boundary itself is the execution opportunity; expiry follows four full subsequent hourly bars.
+  const expiry = executionAt === null ? null : executionAt + 4 * HOUR;
+  const executionInstruction = executionStatus === 'CURRENT'
+    ? 'Current execution opportunity only: the observed hourly open passed the entry filter. This is an ENTER LONG instruction, not a recorded fill; calculate risk and +1R/+2R only from an actual fill.'
+    : executionStatus === 'EXPIRED'
+      ? 'The confirmed reclaim has expired because its next-hour execution instant passed. Return NO TRADE; do not display or backfill a past execution.'
+      : executionStatus === 'REJECTED'
+        ? 'No trade at this boundary: the observed execution open did not meet the above-pivot and no-chase conditions. No fill, risk, or targets are recorded.'
+        : 'No current observable next-hour execution opportunity. Risk, invalidation, and targets are not calculated without a current actioning setup.';
   const contextRules = [
     toRule('fear-greed-freshness', 'Fear & Greed context is present and fresh (non-actioning)', fearGreedFresh, latestFearGreed ? `${Math.round((fearGreedAge ?? 0) / HOUR)}h old; ${fearGreedValues.length} valid values.` : 'Missing or invalid Fear & Greed data.'),
     toRule('fear-greed-cadence', 'Seven Fear & Greed values have approximately daily cadence and a ~6-day span (non-actioning)', fearGreedCadence, fearGreedCadence ? 'Seven values are spaced 18–30 hours apart and span 5–7 days.' : 'Seven-day direction unavailable: values do not meet the required daily cadence/span.'),
@@ -257,7 +306,11 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
   return {
     generatedAt: new Date(input.asOf).toISOString(),
     action,
-    actionReason: action === 'ENTER LONG' ? 'All deterministic v1 action rules passed; execution remains a proposed next-hour-open instruction, not a confirming-close fill.' : 'Fail closed: one or more deterministic v1 action rules did not pass.',
+    actionReason: action === 'ENTER LONG'
+      ? 'All deterministic v1 action rules passed at the current observed next-hour open; this is an instruction, not a recorded fill.'
+      : executionStatus === 'EXPIRED'
+        ? 'Fail closed: the confirmed setup expired after its next-hour execution instant passed.'
+        : 'Fail closed: one or more deterministic v1 action rules did not pass.',
     evidenceScore: { passed, total: actionRules.length, label: 'action-rule coverage, not probability' },
     regime: {
       bullish: regimeBullish,
@@ -277,7 +330,9 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
       noChase,
       volatilityPass,
       executionModel: 'NEXT HOUR OPEN',
-      proposedExecutionAt,
+      executionStatus,
+      executionAt,
+      observedExecutionOpen: executionStatus === 'CURRENT' || executionStatus === 'REJECTED' ? observedExecutionOpen : null,
       entry: null,
       proposedInvalidation,
       target1: null,

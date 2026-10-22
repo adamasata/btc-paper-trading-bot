@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { averageTrueRange, evaluateDecision, exponentialMovingAverage, hasApproximateDailyFearGreedCadence, simpleMovingAverage, type FearGreedValue, type LabCandle } from '../src/domain/decision';
+import { averageTrueRange, evaluateDecision, exponentialMovingAverage, hasApproximateDailyFearGreedCadence, simpleMovingAverage, type DecisionInput, type LabCandle } from '../src/domain/decision';
 
 const HOUR = 60 * 60 * 1_000;
 const DAY = 24 * HOUR;
@@ -10,7 +10,7 @@ function candle(openTime: number, close: number, range = 2): LabCandle {
   return { openTime, open: close, high: close + range, low: close - range, close };
 }
 
-function validInput(): { daily: LabCandle[]; hourly: LabCandle[]; fearGreed: FearGreedValue[]; asOf: number } {
+function validInput(): DecisionInput {
   const dailyBoundary = Math.floor(asOf / DAY) * DAY;
   const daily = Array.from({ length: 220 }, (_, index) => candle(dailyBoundary - (220 - index) * DAY, 1_000 + index, 4));
   const priorSevenMean = (daily.slice(-8, -1).reduce((sum, item) => sum + item.close, 0)) / 7;
@@ -22,7 +22,7 @@ function validInput(): { daily: LabCandle[]; hourly: LabCandle[]; fearGreed: Fea
     classification: index === 0 ? 'Greed' : 'Neutral',
     timestamp: asOf - (index + 1) * DAY,
   }));
-  return { daily, hourly, fearGreed, asOf };
+  return { daily, hourly, fearGreed, asOf, executionOpen: { openTime: asOf, open: priorSevenMean + 0.5 } };
 }
 
 test('indicator math uses a stable SMA-seeded EMA and Wilder ATR', () => {
@@ -37,21 +37,46 @@ test('indicator math uses a stable SMA-seeded EMA and Wilder ATR', () => {
   assert.equal(averageTrueRange(bars, 2), 4);
 });
 
-test('confirmed bullish reclaim creates a next-hour-open proposal without inventing a confirming-close fill', () => {
+test('exact UTC boundary enters only with a valid causally observed hourly open', () => {
   const result = evaluateDecision(validInput());
   assert.equal(result.action, 'ENTER LONG');
   assert.equal(result.evidenceScore.label, 'action-rule coverage, not probability');
   assert.equal(result.setup.confirmedReclaim, true);
   assert.equal(result.setup.executionModel, 'NEXT HOUR OPEN');
-  assert.equal(result.setup.proposedExecutionAt, asOf);
+  assert.equal(result.setup.executionStatus, 'CURRENT');
+  assert.equal(result.setup.executionAt, asOf);
+  assert.equal(result.setup.observedExecutionOpen, validInput().executionOpen?.open);
   assert.equal(result.setup.entry, null);
   assert.ok(result.setup.proposedInvalidation !== null && result.setup.proposedInvalidation < result.setup.pivot!);
   assert.equal(result.setup.target1, null);
   assert.equal(result.setup.target2, null);
-  assert.equal(result.setup.expiry, asOf);
-  assert.match(result.setup.executionInstruction, /actual fill/);
+  assert.equal(result.setup.expiry, asOf + 4 * HOUR);
+  assert.match(result.setup.executionInstruction, /observed hourly open/i);
   assert.ok(result.setup.ema21h !== null);
   assert.ok(result.actionRules.every((rule) => rule.passed));
+});
+
+test('a passing setup is expired at 12:30 and cannot be revived by an open', () => {
+  const input = validInput();
+  input.asOf += 30 * 60 * 1_000;
+  const result = evaluateDecision(input);
+  assert.equal(result.action, 'NO TRADE');
+  assert.equal(result.setup.executionStatus, 'EXPIRED');
+  assert.equal(result.setup.executionAt, null);
+  assert.equal(result.setup.expiry, null);
+});
+
+test('the exact boundary rejects an unavailable or out-of-range observed open', () => {
+  const missing = validInput();
+  missing.executionOpen = null;
+  assert.equal(evaluateDecision(missing).setup.executionStatus, 'REJECTED');
+
+  const rejected = validInput();
+  rejected.executionOpen = { openTime: asOf, open: rejected.executionOpen!.open + 10_000 };
+  const result = evaluateDecision(rejected);
+  assert.equal(result.action, 'NO TRADE');
+  assert.equal(result.setup.executionStatus, 'REJECTED');
+  assert.equal(result.setup.observedExecutionOpen, rejected.executionOpen.open);
 });
 
 test('future mutation and incomplete bars cannot affect an as-of decision', () => {
