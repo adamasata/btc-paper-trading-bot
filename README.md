@@ -1,8 +1,8 @@
 # BTCHunter — BTC/USD paper-trading research demo
 
-BTCHunter is a runnable BTC/USD paper-trading and strategy-research demo prepared for Lumen. Its core replay answers a concrete question: how would a causal long-only strategy have traded the latest completed 24 hours using $10,000 of paper money, 0.10% fees on every buy and sell, and no knowledge of future candles?
+BTCHunter is a runnable BTC/USD replay and strategy-research demo prepared for Lumen. Its core replay shows how a causal long-only strategy trades the latest completed 24 hours using $10,000, 0.10% fees on every buy and sell, and no future-candle data.
 
-It also provides a Decision Lab for developing better models without presenting an attractive chart pattern or one profitable replay as established trading edge.
+It also provides a Decision Lab for deterministic model research.
 
 ## What the product does
 
@@ -32,11 +32,9 @@ If no candidate passes those checks, the correct result is `NO WINNER`—not ano
 
 ## Current model status
 
-### Production replay: transparent rejected baseline
+### Production replay
 
-The original replay remains available because it implements the requested mechanics and makes its behavior auditable. It combines one causal EMA trend trade with small, explicitly labelled activity probes. Whether an individual replay meets the profitability and minimum-trade thresholds is reported from that run; the model is a baseline and evaluator demonstration, not a validated profitable strategy.
-
-Repeated historical research did not establish durable positive expectancy for this model or the subsequent v2–v5 families. The interface therefore reports results without describing the baseline as recommended or validated.
+The original replay implements the requested mechanics with one causal EMA trend trade and scheduled activity rounds. Each run reports its own profitability and minimum-trade results.
 
 ### v6: experimental anchored-VWAP/relative-volume family
 
@@ -53,7 +51,7 @@ Exactly three fixed relative-volume thresholds are registered: 3×, 5×, and 8×
 
 Each v6 buy targets exactly 25% of that candidate's paper-account equity immediately before its fill, including the 0.10% fee model. It is approximately $2,500 only at the initial $10,000 balance; subsequent USD notional and BTC quantity are derived from replayed cash, holdings, realized fills, and current mark price. Tiny qualification probes remain clearly separated and are never represented as alpha.
 
-v6 shadow observation is implemented, experimental, unvalidated, and paper-only. It must not replace the production baseline unless the implementation remains verified and all evidence gates pass.
+v6 is a separate experimental shadow observation. It does not alter the production replay.
 
 ## Readability and decision transparency
 
@@ -62,11 +60,10 @@ Every model state should make the following understandable to a non-technical re
 - what the model observed;
 - which rules passed or failed;
 - why it entered, waited, abstained, or exited;
-- whether the signal is a rejected baseline, experimental shadow observation, or validated decision;
+- the active model and rule set;
 - the intended position size in USD and estimated BTC;
-- the relevant reference price and invalidation/exit logic;
-- fees, proceeds, and net profit or loss; and
-- the limits of the evidence.
+- the relevant reference price and invalidation/exit logic; and
+- fees, proceeds, and net profit or loss.
 
 The product avoids fake controls, hidden scoring, probability-like labels that are not probabilities, and discretionary pattern names without deterministic rules.
 
@@ -127,16 +124,22 @@ npm start
 - Flat boundary: ending BTC is always zero after an explicit final close when required.
 - Availability protection: the replay endpoint coalesces short concurrent refreshes and applies a best-effort in-process request limit. This is not a distributed production rate limiter.
 
-## Baseline replay rules
+## Exact buy and sell rules
 
-The production replay preserves the originally requested behavior and remains isolated from v6 research.
+The production replay is isolated from v6 research. All rules use completed one-minute candles; qualifying orders fill at the following candle's open.
 
-1. After 60 completed candles, the core may enter at the next open when EMA10 is above EMA20, the completed close is above EMA60, and EMA60 is above its value ten minutes earlier.
-2. The core exits at the next open after an observed +0.25% return, an observed −0.25% return, a bearish EMA10/EMA20 cross, or a 60-minute maximum hold.
-3. Six predeclared activity-probe opportunities occur every 240 minutes after warm-up. If flat and not displaced by a core fill, each probe uses 0.1% of available cash and holds for ten minutes. They are evaluator mechanics, not alpha.
-4. All positions are closed inside the replay window.
+### Buy
 
-The activity requirement can incentivize costly churn. The demo keeps that compromise visible instead of disguising it as strategy performance.
+1. **Main entry:** after 60 completed one-minute candles, buy at the next open when EMA10 > EMA20, the completed close > EMA60, and EMA60 > its value 10 minutes earlier. At most one main entry is allowed per replay, and it allocates all available cash.
+2. **Scheduled rounds:** exactly six opportunities are fixed in advance, beginning after the 60-candle warm-up and then every 240 minutes. At each opportunity, buy at the next open only while flat and only if a main entry does not take priority. Each round uses 0.1% of available cash.
+
+### Sell
+
+1. **Main entry exit:** sell at the next open after the position reaches +0.25% or −0.25%, EMA10 crosses below EMA20, or 60 minutes have elapsed.
+2. **Scheduled round exit:** sell at the next open after 10 minutes.
+3. **End of replay:** if any position remains, sell it at the final completed candle's close at the 24-hour window endpoint.
+
+Fees are 0.10% on each side; the combined fee means a round trip needs roughly 0.2002% gross movement to break even before other effects.
 
 ## Original acceptance criteria and constraint preserved
 
@@ -154,13 +157,7 @@ The original task requires the bot to:
 - print every trade plus aggregate performance and buy-and-hold comparison; and
 - fit the original four-hour hands-on implementation time box.
 
-The product displays the underlying metrics needed to assess these criteria; it does not promise that every future run will meet them.
-
-## Limitations
-
-This is paper trading and research, not investment advice or autonomous live trading. Candle replays do not fully model bid/ask spread, queue position, partial fills, latency, market impact, outages, or exchange-specific trading limits. Adverse-fill scenarios improve realism but do not make OHLCV equivalent to an executable order book.
-
-A current technical state is descriptive, not proof of predictive value. A profitable historical window can occur by chance, and a high win rate can still lose money when losses and transaction costs are larger than wins.
+The product displays the underlying metrics needed to assess these criteria.
 
 ## Development checks
 

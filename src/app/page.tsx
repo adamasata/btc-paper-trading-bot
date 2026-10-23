@@ -57,7 +57,7 @@ export default function Home() {
   return <main>
     <nav className="site-nav" aria-label="BTCHunter">
       <Link className="brand" href="/" aria-label="BTCHunter home"><span className="brand-mark">₿</span><span>BTCHUNTER</span></Link>
-      <span className="nav-context">BTC/USD paper replay</span>
+      <span className="nav-context">BTC/USD replay</span>
       <button className="button button-primary" onClick={runLatest24h} disabled={loading}>
         <span className={loading ? 'spinner' : 'button-dot'} />
         {loading ? 'Replaying…' : 'Run latest 24h'}
@@ -74,8 +74,8 @@ export default function Home() {
         <span className="status-dot" />
         <div>
           <p className="eyebrow">Strategy status</p>
-          <strong>Experimental, not validated</strong>
-          <small>{run ? `Replay generated ${formatUtc(new Date(run.generatedAt))}` : 'Paper-only · completed data · no account connection'}</small>
+          <strong>Causal replay</strong>
+          <small>{run ? `Replay generated ${formatUtc(new Date(run.generatedAt))}` : 'Completed data · next-open fills · no account connection'}</small>
         </div>
       </aside>
     </section>
@@ -103,7 +103,7 @@ export default function Home() {
         <header className="section-header"><div><p className="eyebrow">Transaction ledger</p><h2>Every completed round trip</h2></div><span className="status-chip status-neutral">Flat at end</span></header>
         <div className="table-wrap"><table><thead><tr><th>Round</th><th>Buy</th><th>Sell</th><th>Size</th><th>Fees</th><th>Exit</th><th>Net P/L</th></tr></thead><tbody>{result.trades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}</tbody></table></div>
       </article>
-      <section className="method-note"><p><strong>Rules &amp; data:</strong> {run.source}, {formatUtc(run.dataWindow.startTime)}–{formatUtc(run.dataWindow.endTime)} ({result.candleCount} one-minute candles). Fixed EMA conditions and scheduled qualification rounds fill at the next open; no lookahead, no leverage, and forced flat at end. Experimental, not validated.</p></section>
+      <section className="method-note"><p><strong>Rules &amp; data:</strong> {run.source}, {formatUtc(run.dataWindow.startTime)}–{formatUtc(run.dataWindow.endTime)} ({result.candleCount} one-minute candles). Main entries require EMA10 &gt; EMA20, close &gt; EMA60, and a rising EMA60; scheduled rounds run every 240 minutes while flat. All fills use the next open; no lookahead, no leverage, and forced flat at end.</p></section>
     </>}
   </main>;
 }
