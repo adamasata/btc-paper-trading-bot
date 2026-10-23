@@ -85,23 +85,28 @@ The research sequence is:
 
 Previously explored datasets are retired from new inference rather than repeatedly mined for a winner.
 
-## Run on a clean Mac
+## Run from a fresh clone on a clean Mac
 
-Prerequisite: Node.js 20.9+; Node.js 22 LTS is recommended.
+Prerequisites:
 
-Run the latest replay and print the full ledger:
+1. Git (included with Xcode Command Line Tools; install with `xcode-select --install` if needed).
+2. Node.js 20.9 or newer; Node.js 22 LTS is recommended. With Homebrew: `brew install node@22`.
+
+One command clones the repository, installs the locked dependencies, fetches fresh public BTC/USD data, runs the latest completed 24-hour replay, and prints the full ledger:
 
 ```sh
-npm ci && npm run demo
+git clone https://github.com/adamasata/btc-paper-trading-bot.git && cd btc-paper-trading-bot && npm ci && npm run demo
 ```
 
-Run the local web interface:
+No account, API key, configuration file, or real funds are required.
+
+To launch the local web interface after cloning:
 
 ```sh
 npm ci && npm run dev
 ```
 
-Then open `http://localhost:3000` and select **Run latest 24h**. No account, API key, or real funds are used.
+Then open `http://localhost:3000` and select **Run latest 24h**.
 
 Production build:
 
