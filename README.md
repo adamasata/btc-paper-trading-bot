@@ -13,7 +13,7 @@ It also provides a Decision Lab for developing better models without presenting 
 - Charges exactly 0.10% on each buy and each sell.
 - Closes every replay position before the 24-hour boundary.
 - Shows every transaction with timestamps, prices, fees, USD notional, BTC quantity, and profit or loss.
-- Reports final balance, USD and percentage return, trade count, and buy-and-hold over the same window.
+- Reports final balance, USD and percentage return, completed-round count, fees, the full transaction ledger, and the required buy-and-hold comparison.
 
 ## Technical-analysis philosophy
 
