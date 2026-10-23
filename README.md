@@ -1,6 +1,6 @@
-# Lumen — BTC/USD paper-trading research product
+# BTCHunter — BTC/USD paper-trading research demo
 
-Lumen is a runnable BTC/USD paper-trading and strategy-research product. Its core replay answers a concrete question: how would a causal long-only strategy have traded the latest completed 24 hours using $10,000 of paper money, 0.10% fees on every buy and sell, and no knowledge of future candles?
+BTCHunter is a runnable BTC/USD paper-trading and strategy-research demo prepared for Lumen. Its core replay answers a concrete question: how would a causal long-only strategy have traded the latest completed 24 hours using $10,000 of paper money, 0.10% fees on every buy and sell, and no knowledge of future candles?
 
 It also provides a Decision Lab for developing better models without presenting an attractive chart pattern or one profitable replay as established trading edge.
 
@@ -17,7 +17,7 @@ It also provides a Decision Lab for developing better models without presenting 
 
 ## Technical-analysis philosophy
 
-Lumen treats technical analysis as a source of testable hypotheses—not certainty.
+The demo treats technical analysis as a source of testable hypotheses—not certainty.
 
 The research process can examine trend, market structure, volatility, relative volume, anchored VWAP, support and resistance, breakouts, and formally defined price patterns. Labels such as Bat, Shark, breakout, or liquidity sweep are never accepted from chart appearance alone. A usable feature must:
 
@@ -136,7 +136,7 @@ The production replay preserves the originally requested behavior and remains is
 3. Six predeclared activity-probe opportunities occur every 240 minutes after warm-up. If flat and not displaced by a core fill, each probe uses 0.1% of available cash and holds for ten minutes. They are evaluator mechanics, not alpha.
 4. All positions are closed inside the replay window.
 
-The activity requirement can incentivize costly churn. Lumen keeps that compromise visible instead of disguising it as strategy performance.
+The activity requirement can incentivize costly churn. The demo keeps that compromise visible instead of disguising it as strategy performance.
 
 ## Original acceptance criteria and constraint preserved
 

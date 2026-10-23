@@ -35,7 +35,7 @@ export default function Home() {
   const result = run?.result;
   return <main>
     <nav className="site-nav" aria-label="Primary navigation">
-      <Link className="brand" href="/" aria-label="Lumen home"><span className="brand-mark">L</span><span>LUMEN</span></Link>
+      <Link className="brand" href="/" aria-label="BTCHunter home"><span className="brand-mark">₿</span><span>BTCHUNTER</span></Link>
       <span className="nav-context">BTC/USD paper research</span>
       <div className="nav-links"><Link href="/decision-lab">Decision Lab</Link><Link href="/decision-methodology">Methodology</Link></div>
       <button className="button button-primary" onClick={runLatest24h} disabled={loading}><span className={loading ? 'spinner' : 'button-dot'} />{loading ? 'Replaying…' : 'Run latest 24h'}</button>

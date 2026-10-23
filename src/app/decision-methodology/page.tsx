@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { methodologySources } from '@/lib/decision-methodology';
 
-export const metadata = { title: 'Decision Lab Methodology | Lumen', description: 'Auditable BTC/USD Decision Lab methodology, timing contract, and source registry.' };
+export const metadata = { title: 'Decision Lab methodology | BTCHunter', description: 'Auditable BTC/USD Decision Lab methodology, timing contract, and source registry.' };
 const dateLabel = (value: string | null) => value ?? 'Unknown / not independently retrieved';
 
 export default function DecisionMethodologyPage() {
   return <main className="methodology-page">
-    <nav className="site-nav" aria-label="Primary navigation"><Link className="brand" href="/" aria-label="Lumen home"><span className="brand-mark">L</span><span>LUMEN</span></Link><span className="nav-context">Decision Lab · v1</span><div className="nav-links"><Link href="/">Paper replay</Link><Link href="/decision-lab">Decision Lab</Link></div></nav>
+    <nav className="site-nav" aria-label="Primary navigation"><Link className="brand" href="/" aria-label="BTCHunter home"><span className="brand-mark">₿</span><span>BTCHUNTER</span></Link><span className="nav-context">Decision Lab · v1</span><div className="nav-links"><Link href="/">Paper replay</Link><Link href="/decision-lab">Decision Lab</Link></div></nav>
     <section className="hero methodology-hero" aria-labelledby="methodology-title"><div><p className="eyebrow">Auditable methodology</p><h1 id="methodology-title">Rules, sources,<br /><em>and limits.</em></h1><p className="lede">A deployed record of the Decision Lab data contract, action boundary, and source mapping—without a claim of future performance.</p></div><aside className="status-card"><span className="status-dot" /><div><p className="eyebrow">Research limit</p><strong>Not strategy proof</strong><small>Rule coverage is not probability, advice, or a performance claim.</small></div></aside></section>
     <section className="research-status" aria-label="Research status"><span className="status-dot" /><div><strong>No validated winner</strong><p>The published v1 remains an auditable research baseline, not a strategy endorsement.</p></div></section>
     <section className="methodology-grid"><article className="surface lab-panel"><p className="eyebrow">Scope / data contract</p><h2>Completed public data only</h2><ul><li>Requires 220 contiguous completed UTC daily BTC/USD candles and 22 completed UTC hourly candles from Binance.US.</li><li>Forming candles, malformed OHLC, gaps, or stale required candles fail closed to <strong>NO TRADE</strong>.</li><li>Public data is read-only. The Lab neither places orders nor accesses account data.</li></ul></article>
