@@ -1,0 +1,7 @@
+{
+  "runId": "2026-10-23T07-03-01-732Z-v5",
+  "startedAt": "2026-10-23T07:03:01.732Z",
+  "preregistrationPath": "research/preregistration-v5.json",
+  "preregistrationSha256": "bd53abafdeb04c4d7359ee59f9323ad8ef4a86bf38e58f206721cf79817f27d4",
+  "provenance": "POST-HOC EXPLORATORY: cumulative v1-v5 search means all results have multiple-testing risk and are not confirmatory evidence."
+}

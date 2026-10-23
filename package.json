@@ -11,7 +11,11 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "tsx --test tests/**/*.test.ts",
-    "demo": "tsx src/cli.ts"
+    "demo": "tsx src/cli.ts",
+    "research": "tsx src/research/run.ts",
+    "research:v3": "tsx src/research/run-v3.ts",
+    "research:v4": "tsx src/research/run-v4.ts",
+    "research:v5": "tsx src/research/run-v5.ts"
   },
   "dependencies": {
     "next": "^15.5.28",

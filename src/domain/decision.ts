@@ -6,11 +6,6 @@ export type LabCandle = {
   close: number;
 };
 
-export type FearGreedValue = {
-  value: number;
-  classification: string;
-  timestamp: number;
-};
 
 /** The only live value accepted by the evaluator: an hourly open observable at asOf. */
 export type ObservedHourlyOpen = {
@@ -28,7 +23,6 @@ export type DecisionRule = {
 export type DecisionInput = {
   daily: LabCandle[];
   hourly: LabCandle[];
-  fearGreed: FearGreedValue[];
   asOf: number;
   executionOpen?: ObservedHourlyOpen | null;
 };
@@ -66,27 +60,13 @@ export type DecisionOutput = {
     expiry: number | null;
     executionInstruction: string;
   };
-  fearGreed: {
-    value: number | null;
-    classification: string | null;
-    sourceTimestamp: number | null;
-    ageMs: number | null;
-    direction7d: 'rising' | 'falling' | 'flat' | 'unavailable';
-    sourceUrl: 'https://alternative.me/crypto/fear-and-greed-index';
-    contextOnly: true;
-  };
   data: { dailyCompleted: number; hourlyCompleted: number; dataQualityPass: boolean };
   actionRules: DecisionRule[];
-  contextHealth: { available: boolean; summary: string; rules: DecisionRule[] };
 };
 
 const HOUR = 60 * 60 * 1_000;
 const DAY = 24 * HOUR;
-const MAX_FEAR_GREED_AGE_MS = 48 * HOUR;
-const MIN_FEAR_GREED_DAILY_GAP_MS = 18 * HOUR;
-const MAX_FEAR_GREED_DAILY_GAP_MS = 30 * HOUR;
-const MIN_FEAR_GREED_7D_SPAN_MS = 5 * DAY;
-const MAX_FEAR_GREED_7D_SPAN_MS = 7 * DAY;
+
 const MAX_ATR_RATIO = 0.05;
 const NO_CHASE_ATR_MULTIPLIER = 0.5;
 
@@ -156,20 +136,6 @@ export function averageTrueRange(candles: LabCandle[], period: number): number |
   return atr;
 }
 
-/** Seven values can only be described as seven-day direction when they span about six days at daily cadence. */
-export function hasApproximateDailyFearGreedCadence(values: FearGreedValue[]): boolean {
-  const newestSeven = [...values]
-    .filter((entry) => Number.isFinite(entry.timestamp))
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 7);
-  if (newestSeven.length !== 7) return false;
-  const span = newestSeven[0].timestamp - newestSeven[6].timestamp;
-  if (span < MIN_FEAR_GREED_7D_SPAN_MS || span > MAX_FEAR_GREED_7D_SPAN_MS) return false;
-  return newestSeven.every((entry, index) => index === 0 || (
-    newestSeven[index - 1].timestamp - entry.timestamp >= MIN_FEAR_GREED_DAILY_GAP_MS
-    && newestSeven[index - 1].timestamp - entry.timestamp <= MAX_FEAR_GREED_DAILY_GAP_MS
-  ));
-}
 
 function utcCompletedOpen(asOf: number, duration: number): number {
   return Math.floor(asOf / duration) * duration - duration;
@@ -180,8 +146,8 @@ function toRule(id: string, label: string, passed: boolean, detail: string): Dec
 }
 
 /**
- * Pure v1 research decision. It consumes completed bars only and never reaches
- * the replay or trading path. Fear & Greed is rendered as context only.
+ * Pure v1 research decision. It consumes completed candles only and never
+ * reaches the replay or trading path.
  */
 export function evaluateDecision(input: DecisionInput): DecisionOutput {
   const daily = orderedCompleted(input.daily, DAY, input.asOf);
@@ -223,20 +189,6 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
   const noChase = Boolean(pivot && currentPrice !== null && atr14 !== null && currentPrice - pivot.value <= NO_CHASE_ATR_MULTIPLIER * atr14);
   const volatilityPass = Boolean(currentPrice !== null && atr14 !== null && atr14 / currentPrice <= MAX_ATR_RATIO);
 
-  const fearGreedValues = [...input.fearGreed]
-    .filter((entry) => Number.isInteger(entry.value) && entry.value >= 0 && entry.value <= 100 && Number.isFinite(entry.timestamp) && entry.timestamp <= input.asOf)
-    .sort((a, b) => b.timestamp - a.timestamp);
-  const latestFearGreed = fearGreedValues.find((entry) => Boolean(entry.classification)) ?? null;
-  const fearGreedAge = latestFearGreed ? input.asOf - latestFearGreed.timestamp : null;
-  const fearGreedFresh = Boolean(latestFearGreed && fearGreedAge !== null && fearGreedAge >= 0 && fearGreedAge <= MAX_FEAR_GREED_AGE_MS);
-  const fearGreedCadence = hasApproximateDailyFearGreedCadence(fearGreedValues);
-  const direction7d = fearGreedCadence
-    ? (fearGreedValues[0].value > fearGreedValues[6].value ? 'rising' : fearGreedValues[0].value < fearGreedValues[6].value ? 'falling' : 'flat')
-    : 'unavailable';
-
-  // Fear & Greed is deliberately excluded from action/data-quality gating in
-  // v1. A stale or absent context feed is disclosed, but cannot turn a valid
-  // candle-based setup into NO TRADE before walk-forward evidence exists.
   const dataQualityPass = Boolean(dailyHistoryPass && hourlyHistoryPass && dailyFresh && hourlyFresh);
   const setupRules = [
     toRule('daily-history', '220+ contiguous completed daily candles with 21/100/200-day context', dailyHistoryPass, `${daily.length} usable completed daily candles; trailing 220 are ${dailyHistoryPass ? 'contiguous' : 'not contiguous or insufficient'}.`),
@@ -297,10 +249,6 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
       : executionStatus === 'REJECTED'
         ? 'No trade at this boundary: the observed execution open did not meet the above-pivot and no-chase conditions. No fill, risk, or targets are recorded.'
         : 'No current observable next-hour execution opportunity. Risk, invalidation, and targets are not calculated without a current actioning setup.';
-  const contextRules = [
-    toRule('fear-greed-freshness', 'Fear & Greed context is present and fresh (non-actioning)', fearGreedFresh, latestFearGreed ? `${Math.round((fearGreedAge ?? 0) / HOUR)}h old; ${fearGreedValues.length} valid values.` : 'Missing or invalid Fear & Greed data.'),
-    toRule('fear-greed-cadence', 'Seven Fear & Greed values have approximately daily cadence and a ~6-day span (non-actioning)', fearGreedCadence, fearGreedCadence ? 'Seven values are spaced 18–30 hours apart and span 5–7 days.' : 'Seven-day direction unavailable: values do not meet the required daily cadence/span.'),
-  ];
   const passed = actionRules.filter((rule) => rule.passed).length;
 
   return {
@@ -340,21 +288,7 @@ export function evaluateDecision(input: DecisionInput): DecisionOutput {
       expiry,
       executionInstruction,
     },
-    fearGreed: {
-      value: latestFearGreed?.value ?? null,
-      classification: latestFearGreed?.classification ?? null,
-      sourceTimestamp: latestFearGreed?.timestamp ?? null,
-      ageMs: fearGreedAge,
-      direction7d,
-      sourceUrl: 'https://alternative.me/crypto/fear-and-greed-index',
-      contextOnly: true,
-    },
     data: { dailyCompleted: daily.length, hourlyCompleted: hourly.length, dataQualityPass },
     actionRules,
-    contextHealth: {
-      available: contextRules.every((rule) => rule.passed),
-      summary: contextRules.every((rule) => rule.passed) ? 'Fresh Fear & Greed context with a valid seven-day cadence.' : 'Fear & Greed context is incomplete, stale, or lacks valid seven-day cadence; it cannot affect the action or action-rule score.',
-      rules: contextRules,
-    },
   };
 }

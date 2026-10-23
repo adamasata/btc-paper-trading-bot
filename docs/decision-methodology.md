@@ -2,9 +2,9 @@
 
 ## Scope and safety boundary
 
-Decision Lab is a read-only BTC/USD research vertical slice. It fetches public Binance.US `BTCUSD` candles and the public Alternative.me Fear & Greed feed without an API key. It does not submit orders, modify the existing replay, modify bot decisions, access account data, or claim that an observed setup will occur again.
+Decision Lab is a read-only BTC/USD research vertical slice. It fetches public Binance.US `BTCUSD` candles without an API key. It does not submit orders, modify the existing replay, modify bot decisions, access account data, or claim that an observed setup will occur again.
 
-The v1 output is intentionally binary: `ENTER LONG` only when every actioning prerequisite passes; otherwise `NO TRADE`. Missing, malformed, gapped, stale, or incomplete **required candle data** always resolves to `NO TRADE`. Fear & Greed is optional context: its absence, staleness, or irregular cadence is disclosed but cannot alter the action. The action score is explicitly **action-rule coverage, not probability**. It is not a calibrated win rate, expected-value estimate, investment advice, or a recommendation to trade.
+The v1 output is intentionally binary: `ENTER LONG` only when every actioning prerequisite passes; otherwise `NO TRADE`. Missing, malformed, gapped, stale, or incomplete required candle data always resolves to `NO TRADE`. The action score is explicitly **action-rule coverage, not probability**. It is not a calibrated win rate, expected-value estimate, investment advice, or a recommendation to trade.
 
 The deployed, standalone audit record is available at `/decision-methodology` and is linked from Decision Lab.
 
@@ -12,7 +12,6 @@ The deployed, standalone audit record is available at `/decision-methodology` an
 
 - Daily input: at least 220 contiguous, completed UTC daily Binance.US BTCUSD candles. The forming daily bar is excluded.
 - Hourly input: at least 22 contiguous, completed UTC hourly Binance.US BTCUSD candles. The forming hourly bar is excluded.
-- Context input: the latest valid Alternative.me Fear & Greed records when available. Its refresh is non-blocking: a response with validated required candles can initially show context unavailable while a module-local refresh completes. Seven-day direction requires seven records spaced approximately daily (each 18–30 hours apart) spanning 5–7 days; otherwise its label is `unavailable`.
 - A candle is accepted only when its OHLC values are finite, positive, internally consistent, aligned to the expected UTC interval, and part of the required contiguous trailing range.
 - The public read-only endpoint returns `public, s-maxage=60, stale-while-revalidate=60`. Its module-local 60-second cache/single-flight and rate limiter reduce duplicate upstream calls only within one runtime; they are best effort, not distributed production controls.
 
@@ -25,9 +24,9 @@ The deployed, standalone audit record is available at `/decision-methodology` an
 5. **No chase and volatility.** The confirming close can be no more than 0.5 ATR above the reclaimed pivot. ATR must be at most 5% of the latest close. These thresholds are predeclared implementation constraints, not claims of optimization.
 6. **Action and execution.** Only every actioning condition above can produce `ENTER LONG`. A passing completed-candle setup is actionable only at its exact next UTC hourly boundary, never at the confirming close. At that exact boundary the service may provide the newly observed hourly open; it never consumes that candle's later high, low, or close. The open must remain above the pivot and within 0.5 ATR. Any intra-hour request after the boundary is `EXPIRED` and returns `NO TRADE`; a missing or failing boundary open is `REJECTED`. A valid `CURRENT` instruction expires four hours after that boundary. Risk and +1R/+2R targets use an actual fill only and are never fabricated.
 
-## Fear & Greed boundary
+## Research program
 
-Fear & Greed shows the latest value, classification, original source timestamp, age, and cadence-qualified seven-value direction with direct attribution to Alternative.me [9] [10]. It is **context only in v1**: valid, stale, missing, or irregular Fear & Greed cannot alter `ENTER LONG` versus `NO TRADE`, action-rule coverage, pivot selection, proposed execution, invalidation, risk, targets, or expiry. Its health appears in a separate context ledger and must not become an action input until a separately pre-registered walk-forward evaluation supports that change.
+The durable `research/` harness evaluates latest complete 30-day BTC/USD minute-candle data over UTC offsets 00:00, 06:00, 12:00, and 18:00. It records candidate families and grids before each run, selects only on the first 20 chronological days, leaves the final 10 days unevaluated unless a candidate qualifies, and reports both genuine and qualification-overlay P&L. See the versioned preregistration files and run artifacts under `research/` for protocols, provenance limits, and results.
 
 ## Inspiration, non-endorsement, and research limits
 
@@ -47,5 +46,3 @@ Each record includes a direct URL, the evidence/claim recorded for this implemen
 6. **YouTube source 2Yni82DI-qQ (title not independently retrieved)** — creator not independently retrieved — publication date unknown. [Direct video](https://www.youtube.com/watch?v=2Yni82DI-qQ). Evidence: recent creator-video example of promotional/certainty framing. Mapping: negative example only; it is not a rule, target source, or probability estimate. Caveat: publication date and metadata unknown; not used as strategy proof.
 7. **DataDash X status 2105311203123695819** — DataDash — publication date not independently retrieved. [Direct post](https://x.com/datadashpro/status/2105311203123695819). Evidence: social-post research example, not a strategy input. Mapping: documents social-research access/framing limits; contributes no rule, score, or action. Caveat: X access/retrieval can vary by viewer/session; text and date are not independently retrieved here.
 8. **Paul X status 2100975556300767234** — Paul Sampson — publication date not independently retrieved. [Direct post](https://x.com/paulsampson0x/status/2100975556300767234). Evidence: social-post research example, not a strategy input. Mapping: documents social-research access/framing limits; contributes no rule, score, or action. Caveat: X access/retrieval can vary by viewer/session; text and date are not independently retrieved here.
-9. **Crypto Fear & Greed Index** — Alternative.me — publication date not stated. [Official page](https://alternative.me/crypto/fear-and-greed-index). Evidence: official public Fear & Greed Index page. Mapping: attribution for the context-only value, classification, timestamp, age, and cadence-qualified direction; it cannot change action or action score. Caveat: live content and availability can change; it is not strategy proof.
-10. **Fear & Greed Index API** — Alternative.me — publication date not stated. [Official API](https://api.alternative.me/fng/?limit=7&format=json). Evidence: official public endpoint for the seven fetched records. Mapping: operational context source only; records require freshness and cadence validation before a seven-day direction is labeled. Caveat: live API timing and payload availability can vary; missing/stale/irregular records cannot affect action.

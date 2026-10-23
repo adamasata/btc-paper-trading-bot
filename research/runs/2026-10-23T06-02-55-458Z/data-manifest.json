@@ -1,0 +1,15 @@
+{
+  "provider": "Binance.US public klines",
+  "symbol": "BTCUSD",
+  "interval": "1m",
+  "candleCount": 44641,
+  "firstOpenTime": "2026-09-22T06:01:00.000Z",
+  "lastCompleteOpenTime": "2026-10-23T06:01:00.000Z",
+  "candlesSha256": "42e2f0e549a4e0fc7bee01c36c2a4c38ba6ce74b76c90c75304909a9b61246d3",
+  "offsetHours": [
+    0,
+    6,
+    12,
+    18
+  ]
+}

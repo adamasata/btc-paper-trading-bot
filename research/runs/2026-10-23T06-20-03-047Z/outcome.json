@@ -1,0 +1,13 @@
+{
+  "outcome": "NO WINNER",
+  "evaluatedGenerations": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "maximumGenerations": 4,
+  "frozenCandidateId": null,
+  "holdoutOpened": false,
+  "interpretation": "No development candidate passed every pre-holdout qualification gate, so the sealed holdout was not opened and no production v2 is authorized."
+}

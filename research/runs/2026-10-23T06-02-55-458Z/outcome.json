@@ -1,0 +1,29 @@
+{
+  "outcome": "NO WINNER",
+  "generation": 1,
+  "maximumGenerations": 4,
+  "frozenCandidateId": "selective-regime-pullback-a0.6-fastEma=10-slowEma=30-trendEma=90-pullbackFraction=0.001-takeProfitFraction=0.003-stopLossFraction=0.004-maxHoldMinutes=60",
+  "winnerGate": {
+    "passed": false,
+    "gates": {
+      "morePositiveThanNegative": false,
+      "positiveMeanAndMedian": false,
+      "positiveExpectancyAndProfitFactor": false,
+      "betterRiskThanV1": false,
+      "boundaryAndOutlierRobust": false,
+      "materiallyBeatsV1AndCash": false
+    }
+  },
+  "headline": {
+    "holdoutPositiveWindowRatio": "12.500000%",
+    "holdoutMeanReturn": "-0.194053%",
+    "holdoutMedianReturn": "-0.158508%",
+    "holdoutProfitFactor": 0.20290023485008404,
+    "holdoutTotalProfitUsd": -776.2100225836044,
+    "genuineProfitUsd": -749.1421315583602,
+    "qualificationProfitUsd": -27.06789102524442,
+    "genuineRoundTrips": 66,
+    "qualificationRoundTrips": 134
+  },
+  "interpretation": "No production v2 is authorized by this run because the frozen candidate failed one or more winner gates."
+}

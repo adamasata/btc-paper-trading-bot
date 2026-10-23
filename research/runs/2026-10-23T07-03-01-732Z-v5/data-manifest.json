@@ -1,0 +1,15 @@
+{
+  "sourceRun": "research/runs/2026-10-23T06-25-51-688Z",
+  "sourceArtifact": "research/runs/2026-10-23T06-25-51-688Z/candles.json.gz",
+  "sourceCandlesSha256": "aa298c49f901b982f10a8b934a66c3bf2b57e3ec0fac9eb1db0add85fc300035",
+  "candleCount": 44641,
+  "firstOpenTime": "2026-09-22T06:24:00.000Z",
+  "lastCompleteOpenTime": "2026-10-23T06:24:00.000Z",
+  "noExternalRefetch": true,
+  "offsetHours": [
+    0,
+    6,
+    12,
+    18
+  ]
+}

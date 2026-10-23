@@ -1,0 +1,104 @@
+{
+  "protocolVersion": "v1",
+  "registeredAt": "2026-10-23T00:18:08+02:00",
+  "status": "registered-before-data-summary",
+  "objective": "Evaluate causal, long-only BTC/USD candidates on the latest 30 complete days without selecting on a single 24-hour boundary.",
+  "market": {
+    "symbol": "BTCUSD",
+    "granularity": "1m",
+    "primaryProvider": "Binance.US public klines",
+    "fallbackProvider": "Coinbase Exchange public candles",
+    "selectionData": "No summary, per-window return, or candidate ranking was read before this registration."
+  },
+  "execution": {
+    "initialCashUsd": 10000,
+    "longOnly": true,
+    "leverage": 0,
+    "feeRate": 0.001,
+    "decisionPrice": "completed candle close",
+    "fillPrice": "next candle open",
+    "windowEnd": "All positions are marked flat at the 24-hour boundary using that boundary's observable open; no later candle data is read.",
+    "genuineAllocationRates": [0.25, 0.4, 0.6],
+    "qualificationOverlay": {
+      "enabledOnlyWhenGenuineRoundTripsBelow": 5,
+      "targetTotalRoundTrips": 5,
+      "allocationRate": 0.01,
+      "schedule": "Final ten minutes of each 24-hour window; sequential one-minute round trips in fixed even-minute slots.",
+      "accounting": "A dedicated 1% sleeve is held out at window start. Overlay profit/loss and fees are reported separately and never decide candidate signals."
+    }
+  },
+  "windows": {
+    "count": 30,
+    "hoursPerWindow": 24,
+    "offsetHours": [0, 6, 12, 18],
+    "developmentDays": 20,
+    "sealedHoldoutDays": 10,
+    "selection": "Rank only aggregate development metrics across all four offsets. Freeze one candidate ID before opening holdout results."
+  },
+  "candidateFamilies": [
+    {
+      "family": "selective-regime-pullback",
+      "grid": {
+        "fastEma": [10, 20],
+        "slowEma": [30, 50],
+        "trendEma": [90],
+        "pullbackFraction": [0.001, 0.002],
+        "takeProfitFraction": [0.003, 0.005],
+        "stopLossFraction": [0.002, 0.004],
+        "maxHoldMinutes": [60]
+      }
+    },
+    {
+      "family": "volatility-contraction-breakout-retest",
+      "grid": {
+        "breakoutLookbackMinutes": [30, 60],
+        "contractionRatioMax": [0.7, 0.85],
+        "retestToleranceFraction": [0.001, 0.002],
+        "takeProfitFraction": [0.004],
+        "stopLossFraction": [0.003],
+        "maxHoldMinutes": [90]
+      }
+    },
+    {
+      "family": "range-regime-mean-reversion",
+      "grid": {
+        "lookbackMinutes": [30, 60],
+        "maxTrendFraction": [0.003, 0.006],
+        "entryZScore": [-1.25, -1.75],
+        "takeProfitFraction": [0.0025],
+        "stopLossFraction": [0.003],
+        "maxHoldMinutes": [60]
+      }
+    },
+    {
+      "family": "session-momentum",
+      "grid": {
+        "sessionsUtcHour": [[0, 8, 16], [2, 10, 18]],
+        "lookbackMinutes": [30, 60],
+        "minimumMomentumFraction": [0.0015, 0.003],
+        "takeProfitFraction": [0.0035],
+        "stopLossFraction": [0.0025],
+        "maxHoldMinutes": [60]
+      }
+    },
+    {
+      "family": "baselines",
+      "members": ["v1", "cash", "buy-and-hold"]
+    }
+  ],
+  "ranking": {
+    "developmentOrder": ["positiveWindowRatio", "meanReturn", "medianReturn", "profitFactor", "lowerMaxDrawdown", "lowerWorstWindowLoss"],
+    "holdoutGate": [
+      "more positive than negative windows after all fees and overlay trades",
+      "positive mean and median return",
+      "positive expectancy and profit factor greater than one",
+      "worst-window loss and max drawdown better than v1 or bounded by the predeclared daily loss cap",
+      "no offset has a negative mean return and no single window contributes more than 50% of total P&L",
+      "materially beats v1 positive-window ratio by at least 5 percentage points and beats cash"
+    ]
+  },
+  "expansionPolicy": {
+    "maximumGenerations": 4,
+    "rule": "If no candidate passes, add only a new distinct family in a separately timestamped preregistration before reviewing its development summary. Stop honestly after generation four."
+  }
+}

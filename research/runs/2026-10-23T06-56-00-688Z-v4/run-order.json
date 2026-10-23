@@ -1,0 +1,7 @@
+{
+  "runId": "2026-10-23T06-56-00-688Z-v4",
+  "startedAt": "2026-10-23T06:56:00.688Z",
+  "preregistrationPath": "research/preregistration-v4.json",
+  "preregistrationSha256": "a58a26b2c96937ea982eb3821c8da35564fa2383dce8e24363b3fd7a35c7e4b7",
+  "provenance": "POST-HOC EXPLORATORY; local run ordering is not independent preregistration provenance."
+}

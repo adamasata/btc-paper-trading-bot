@@ -1,0 +1,9 @@
+{
+  "runId": "2026-10-23T06-20-03-047Z",
+  "startedAt": "2026-10-23T06:20:03.047Z",
+  "preregistrationPath": "research/preregistration-v1.json",
+  "preregistrationSha256": "8f4b3d3d8e4ebb11421608c2cb2459c2fa285e7b9f4663bd7b27f42652e76e52",
+  "generation": 1,
+  "maximumGenerations": 4,
+  "assertionLimit": "This artifact records local file and run order only; it does not establish independent preregistration provenance."
+}

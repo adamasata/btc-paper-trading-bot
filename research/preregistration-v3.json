@@ -1,0 +1,39 @@
+{
+  "protocolVersion": "v3-exploratory",
+  "registeredAt": "2026-10-23T08:30:00+02:00",
+  "status": "recorded-before-v3-development-evaluation",
+  "preregistrationLimit": "This is a user-proposed follow-on hypothesis after prior development results. It is not immutable preregistration or independent provenance.",
+  "objective": "Evaluate one causal five-entry green-candle-streak BTC/USD rule on the persisted accepted v2 candle artifact without opening holdout unless every existing development qualification gate passes at a declared allocation.",
+  "data": {
+    "sourceRun": "research/runs/2026-10-23T06-25-51-688Z",
+    "candleArtifact": "research/runs/2026-10-23T06-25-51-688Z/candles.json.gz",
+    "expectedCandlesSha256": "aa298c49f901b982f10a8b934a66c3bf2b57e3ec0fac9eb1db0add85fc300035",
+    "market": "BTCUSD",
+    "granularity": "1m",
+    "provider": "Binance.US public klines",
+    "noRefetch": true
+  },
+  "execution": {
+    "initialCashUsd": 10000,
+    "genuineSleeveUsd": 9900,
+    "qualificationSleeveUsd": 100,
+    "longOnly": true,
+    "leverage": 0,
+    "feeRate": 0.001,
+    "signal": "After three consecutive completed green one-minute candles (close > open), start a cycle only while flat.",
+    "fills": "Buy five equal tranches at the next five one-minute opens. Sell all accumulated BTC at the immediately following sixth one-minute open. Signals from the active cycle are ignored; no overlapping cycle is permitted.",
+    "allocationRates": [0.25, 0.4, 0.6],
+    "allocationCap": "Each cycle's total genuine allocation is capped at allocationRate times the $9,900 genuine sleeve, subject to available genuine cash; each tranche is one fifth of that cycle allocation.",
+    "boundary": "A cycle is started only when all five entry opens and its sixth sell open are observable by or before the window boundary. Any open position is force-closed at the boundary open without reading a later candle.",
+    "qualificationOverlay": "The existing exact deficit-to-five round-trip overlay remains separately attributed and does not produce signals."
+  },
+  "windows": {
+    "count": 30,
+    "hoursPerWindow": 24,
+    "offsetHours": [0, 6, 12, 18],
+    "developmentDays": 20,
+    "sealedHoldoutDays": 10
+  },
+  "qualification": "Use the existing developmentQualificationGate unchanged: every offset must have more positive than negative windows, positive mean and median return, positive expectancy and profit factor above one, positive total P&L, positive genuine P&L, and positive mean return.",
+  "holdoutPolicy": "Evaluate only development first. Open holdout once only if an allocation passes every existing development qualification gate; otherwise output NO WINNER and keep holdout sealed."
+}

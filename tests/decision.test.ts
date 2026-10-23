@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { averageTrueRange, evaluateDecision, exponentialMovingAverage, hasApproximateDailyFearGreedCadence, simpleMovingAverage, type DecisionInput, type LabCandle } from '../src/domain/decision';
+import { averageTrueRange, evaluateDecision, exponentialMovingAverage, simpleMovingAverage, type DecisionInput, type LabCandle } from '../src/domain/decision';
 
 const HOUR = 60 * 60 * 1_000;
 const DAY = 24 * HOUR;
@@ -17,12 +17,7 @@ function validInput(): DecisionInput {
   const hourly = Array.from({ length: 30 }, (_, index) => candle(asOf - (30 - index) * HOUR, priorSevenMean - 10, 2));
   hourly[hourly.length - 2] = { openTime: asOf - 2 * HOUR, open: priorSevenMean - 1, high: priorSevenMean + 1, low: priorSevenMean - 2, close: priorSevenMean };
   hourly[hourly.length - 1] = { openTime: asOf - HOUR, open: priorSevenMean, high: priorSevenMean + 3, low: priorSevenMean, close: priorSevenMean + 1 };
-  const fearGreed = Array.from({ length: 7 }, (_, index) => ({
-    value: 58 - index,
-    classification: index === 0 ? 'Greed' : 'Neutral',
-    timestamp: asOf - (index + 1) * DAY,
-  }));
-  return { daily, hourly, fearGreed, asOf, executionOpen: { openTime: asOf, open: priorSevenMean + 0.5 } };
+  return { daily, hourly, asOf, executionOpen: { openTime: asOf, open: priorSevenMean + 0.5 } };
 }
 
 test('indicator math uses a stable SMA-seeded EMA and Wilder ATR', () => {
@@ -118,42 +113,9 @@ test('a gapped trailing required candle range fails closed even when its count r
   assert.equal(result.actionRules.find((rule) => rule.id === 'daily-history')?.passed, false);
 });
 
-test('Fear & Greed changes cannot alter action-rule coverage, action, or proposed execution', () => {
-  const firstInput = validInput();
-  const secondInput = validInput();
-  secondInput.fearGreed = secondInput.fearGreed.map((item, index) => ({ ...item, value: index === 0 ? 1 : 99, classification: 'Extreme Fear' }));
-  const first = evaluateDecision(firstInput);
-  const second = evaluateDecision(secondInput);
-  assert.equal(first.action, second.action);
-  assert.deepEqual(first.evidenceScore, second.evidenceScore);
-  assert.deepEqual(first.actionRules, second.actionRules);
-  assert.deepEqual(first.setup, second.setup);
-  assert.equal(second.fearGreed.contextOnly, true);
-  assert.notEqual(first.fearGreed.value, second.fearGreed.value);
-});
-
-test('stale or missing Fear & Greed is disclosed separately and cannot change the v1 action score', () => {
-  const stale = validInput();
-  stale.fearGreed = stale.fearGreed.map((entry) => ({ ...entry, timestamp: entry.timestamp - 5 * DAY }));
-  const fresh = evaluateDecision(validInput());
-  const result = evaluateDecision(stale);
-  assert.equal(result.action, fresh.action);
-  assert.deepEqual(result.evidenceScore, fresh.evidenceScore);
+test('Decision Lab accepts candle-only data and exposes no sentiment context', () => {
+  const result = evaluateDecision(validInput());
   assert.equal(result.data.dataQualityPass, true);
-  assert.equal(result.contextHealth.available, false);
-  assert.equal(result.contextHealth.rules.find((rule) => rule.id === 'fear-greed-freshness')?.passed, false);
-});
-
-test('seven-day Fear & Greed direction requires approximately daily cadence and a six-day span', () => {
-  const input = validInput();
-  assert.equal(hasApproximateDailyFearGreedCadence(input.fearGreed), true);
-  assert.equal(evaluateDecision(input).fearGreed.direction7d, 'rising');
-
-  const irregular = validInput();
-  irregular.fearGreed[3].timestamp = irregular.fearGreed[2].timestamp - HOUR;
-  assert.equal(hasApproximateDailyFearGreedCadence(irregular.fearGreed), false);
-  const result = evaluateDecision(irregular);
-  assert.equal(result.fearGreed.direction7d, 'unavailable');
-  assert.equal(result.contextHealth.rules.find((rule) => rule.id === 'fear-greed-cadence')?.passed, false);
-  assert.equal(result.action, evaluateDecision(validInput()).action);
+  assert.equal('fearGreed' in result, false);
+  assert.equal('contextHealth' in result, false);
 });

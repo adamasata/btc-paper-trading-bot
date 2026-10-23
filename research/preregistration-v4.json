@@ -1,0 +1,547 @@
+{
+  "protocolVersion": "v4-post-hoc-exploratory",
+  "recordedAt": "2026-10-23T08:45:00+02:00",
+  "status": "recorded before v4 development evaluation",
+  "label": "POST-HOC EXPLORATORY \u2014 this is a bounded follow-on search informed by prior failed five-entry development work. It is not immutable preregistration, independent provenance, or confirmatory evidence.",
+  "objective": "Explore simple fee-aware, causal one-minute probability-pattern rules on one persisted BTCUSD candle artifact. Do not access holdout unless a candidate passes every existing per-offset development gate and the v4 55% positive-window gate at every offset.",
+  "data": {
+    "sourceRun": "research/runs/2026-10-23T06-25-51-688Z",
+    "candleArtifact": "research/runs/2026-10-23T06-25-51-688Z/candles.json.gz",
+    "expectedCandlesSha256": "aa298c49f901b982f10a8b934a66c3bf2b57e3ec0fac9eb1db0add85fc300035",
+    "market": "BTCUSD",
+    "granularity": "1m",
+    "noExternalRefetch": true
+  },
+  "execution": {
+    "initialCashUsd": 10000,
+    "genuineSleeveUsd": 9900,
+    "qualificationSleeveUsd": 100,
+    "longOnly": true,
+    "leverage": 0,
+    "feeRatePerBuyAndSell": 0.001,
+    "entries": "A completed-candle signal is evaluated only while flat. Buy once at the next observable one-minute open, allocating 25%, 40%, or 60% of available genuine sleeve cash; sell once at the applicable fixed-hold open. No overlap. Boundary-open forced flat closure remains causal.",
+    "qualificationOverlay": "Existing exact round-trip deficit only, with separately attributed P&L and fees."
+  },
+  "families": {
+    "green-streak-continuation": {
+      "greens": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "minimumCumulativeStreakReturn": [
+        0,
+        0.0015,
+        0.003
+      ],
+      "holdMinutes": [
+        3,
+        5,
+        10,
+        15,
+        30
+      ]
+    },
+    "red-streak-mean-reversion": {
+      "reds": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "minimumAbsoluteCumulativeDecline": [
+        0,
+        0.0015,
+        0.003
+      ],
+      "holdMinutes": [
+        3,
+        5,
+        10,
+        15,
+        30
+      ]
+    },
+    "green-streak-delayed-continuation": {
+      "greens": [
+        3,
+        4
+      ],
+      "minimumCumulativeStreakReturn": [
+        0.0015,
+        0.003
+      ],
+      "pullback": "one completed non-green/flat candle",
+      "holdMinutes": [
+        5,
+        10,
+        15
+      ]
+    },
+    "majority-momentum": {
+      "windows": [
+        {
+          "length": 5,
+          "minimumGreen": 4
+        },
+        {
+          "length": 8,
+          "minimumGreen": 6
+        }
+      ],
+      "minimumCumulativeReturn": [
+        0.0015,
+        0.003
+      ],
+      "holdMinutes": [
+        5,
+        10,
+        15
+      ]
+    },
+    "allocations": [
+      0.25,
+      0.4,
+      0.6
+    ]
+  },
+  "windows": {
+    "count": 30,
+    "hoursPerWindow": 24,
+    "offsetHours": [
+      0,
+      6,
+      12,
+      18
+    ],
+    "developmentDays": 20,
+    "sealedHoldoutDays": 10
+  },
+  "developmentGates": {
+    "existingPerOffset": [
+      "more positive than negative windows",
+      "positive mean and median return",
+      "positive expectancy and profit factor above 1",
+      "positive total P&L",
+      "positive genuine P&L",
+      "positive mean return"
+    ],
+    "v4MultipleHypothesis": "At each offset, positiveWindowRatio must be at least 0.55 (at least 11/20 positive development windows).",
+    "selection": "Deduplicate equivalent candidates; rank candidates but do not freeze least-bad candidates. If one or more pass all gates, deterministically freeze the first ranked candidate and evaluate holdout exactly once with existing winner gates, preserving this post-hoc exploratory provenance."
+  },
+  "holdoutPolicy": "Development only first. If no candidate clears every gate, output NO WINNER and do not evaluate, serialize, or inspect holdout metrics.",
+  "candidateRegistry": [
+    {
+      "id": "green-streak-continuation-a0.25-streakLength=2-minimumReturnFraction=0-holdMinutes=3",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 3
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.4-streakLength=2-minimumReturnFraction=0.0015-holdMinutes=5",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.6-streakLength=2-minimumReturnFraction=0.003-holdMinutes=10",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.4-streakLength=3-minimumReturnFraction=0-holdMinutes=5",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.6-streakLength=3-minimumReturnFraction=0.0015-holdMinutes=10",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.25-streakLength=3-minimumReturnFraction=0.003-holdMinutes=15",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.6-streakLength=4-minimumReturnFraction=0-holdMinutes=10",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.25-streakLength=4-minimumReturnFraction=0.0015-holdMinutes=15",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.4-streakLength=4-minimumReturnFraction=0.003-holdMinutes=30",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 30
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.25-streakLength=5-minimumReturnFraction=0-holdMinutes=15",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.4-streakLength=5-minimumReturnFraction=0.0015-holdMinutes=30",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 30
+      }
+    },
+    {
+      "id": "green-streak-continuation-a0.6-streakLength=5-minimumReturnFraction=0.003-holdMinutes=5",
+      "family": "green-streak-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.4-streakLength=2-minimumReturnFraction=0-holdMinutes=3",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 3
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.6-streakLength=2-minimumReturnFraction=0.0015-holdMinutes=5",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.25-streakLength=2-minimumReturnFraction=0.003-holdMinutes=10",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 2,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.6-streakLength=3-minimumReturnFraction=0-holdMinutes=5",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.25-streakLength=3-minimumReturnFraction=0.0015-holdMinutes=10",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.4-streakLength=3-minimumReturnFraction=0.003-holdMinutes=15",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.25-streakLength=4-minimumReturnFraction=0-holdMinutes=10",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.4-streakLength=4-minimumReturnFraction=0.0015-holdMinutes=15",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.6-streakLength=4-minimumReturnFraction=0.003-holdMinutes=30",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 30
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.4-streakLength=5-minimumReturnFraction=0-holdMinutes=15",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.6-streakLength=5-minimumReturnFraction=0.0015-holdMinutes=30",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 30
+      }
+    },
+    {
+      "id": "red-streak-mean-reversion-a0.25-streakLength=5-minimumReturnFraction=0.003-holdMinutes=5",
+      "family": "red-streak-mean-reversion",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 5,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.25-streakLength=3-minimumReturnFraction=0.0015-holdMinutes=5",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.4-streakLength=3-minimumReturnFraction=0.003-holdMinutes=10",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.6-streakLength=3-minimumReturnFraction=0.0015-holdMinutes=15",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 3,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.4-streakLength=4-minimumReturnFraction=0.0015-holdMinutes=10",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.4,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.6-streakLength=4-minimumReturnFraction=0.003-holdMinutes=15",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.6,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "green-streak-delayed-continuation-a0.25-streakLength=4-minimumReturnFraction=0.003-holdMinutes=5",
+      "family": "green-streak-delayed-continuation",
+      "allocationRate": 0.25,
+      "params": {
+        "streakLength": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "majority-momentum-a0.25-lookbackLength=5-minimumGreen=4-minimumReturnFraction=0.0015-holdMinutes=5",
+      "family": "majority-momentum",
+      "allocationRate": 0.25,
+      "params": {
+        "lookbackLength": 5,
+        "minimumGreen": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "majority-momentum-a0.4-lookbackLength=5-minimumGreen=4-minimumReturnFraction=0.003-holdMinutes=10",
+      "family": "majority-momentum",
+      "allocationRate": 0.4,
+      "params": {
+        "lookbackLength": 5,
+        "minimumGreen": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "majority-momentum-a0.6-lookbackLength=5-minimumGreen=4-minimumReturnFraction=0.0015-holdMinutes=15",
+      "family": "majority-momentum",
+      "allocationRate": 0.6,
+      "params": {
+        "lookbackLength": 5,
+        "minimumGreen": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "majority-momentum-a0.6-lookbackLength=5-minimumGreen=4-minimumReturnFraction=0.003-holdMinutes=5",
+      "family": "majority-momentum",
+      "allocationRate": 0.6,
+      "params": {
+        "lookbackLength": 5,
+        "minimumGreen": 4,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "majority-momentum-a0.4-lookbackLength=5-minimumGreen=4-minimumReturnFraction=0.0015-holdMinutes=10",
+      "family": "majority-momentum",
+      "allocationRate": 0.4,
+      "params": {
+        "lookbackLength": 5,
+        "minimumGreen": 4,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "majority-momentum-a0.4-lookbackLength=8-minimumGreen=6-minimumReturnFraction=0.0015-holdMinutes=5",
+      "family": "majority-momentum",
+      "allocationRate": 0.4,
+      "params": {
+        "lookbackLength": 8,
+        "minimumGreen": 6,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "majority-momentum-a0.6-lookbackLength=8-minimumGreen=6-minimumReturnFraction=0.003-holdMinutes=10",
+      "family": "majority-momentum",
+      "allocationRate": 0.6,
+      "params": {
+        "lookbackLength": 8,
+        "minimumGreen": 6,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 10
+      }
+    },
+    {
+      "id": "majority-momentum-a0.25-lookbackLength=8-minimumGreen=6-minimumReturnFraction=0.0015-holdMinutes=15",
+      "family": "majority-momentum",
+      "allocationRate": 0.25,
+      "params": {
+        "lookbackLength": 8,
+        "minimumGreen": 6,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 15
+      }
+    },
+    {
+      "id": "majority-momentum-a0.25-lookbackLength=8-minimumGreen=6-minimumReturnFraction=0.003-holdMinutes=5",
+      "family": "majority-momentum",
+      "allocationRate": 0.25,
+      "params": {
+        "lookbackLength": 8,
+        "minimumGreen": 6,
+        "minimumReturnFraction": 0.003,
+        "holdMinutes": 5
+      }
+    },
+    {
+      "id": "majority-momentum-a0.6-lookbackLength=8-minimumGreen=6-minimumReturnFraction=0.0015-holdMinutes=10",
+      "family": "majority-momentum",
+      "allocationRate": 0.6,
+      "params": {
+        "lookbackLength": 8,
+        "minimumGreen": 6,
+        "minimumReturnFraction": 0.0015,
+        "holdMinutes": 10
+      }
+    }
+  ],
+  "candidateRegistryPolicy": "Exactly 40 distinct predeclared candidate designs. Allocation is a design attribute, not a Cartesian-product multiplier. No additional families were added."
+}

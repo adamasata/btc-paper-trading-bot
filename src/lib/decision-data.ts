@@ -1,25 +1,20 @@
-import type { FearGreedValue, LabCandle, ObservedHourlyOpen } from '@/domain/decision';
+import type { LabCandle, ObservedHourlyOpen } from '@/domain/decision';
 
 const HOUR = 60 * 60 * 1_000;
 const DAY = 24 * HOUR;
 const BINANCE_US_URL = 'https://api.binance.us/api/v3/klines';
-const FEAR_GREED_URL = 'https://api.alternative.me/fng/?limit=7&format=json';
+
 
 export type DecisionMarketData = {
   source: 'Binance.US';
   daily: LabCandle[];
   hourly: LabCandle[];
-  fearGreed: FearGreedValue[];
   /** Present only when the request lands exactly on a UTC hourly boundary. */
   executionOpen: ObservedHourlyOpen | null;
 };
 
 type BinanceLabKline = [number, string, string, string, string, string, number, ...unknown[]];
-type FearGreedPayload = { data?: unknown };
-type CachedFearGreed = { expiresAt: number; values: FearGreedValue[] };
 
-let latestFearGreed: CachedFearGreed | null = null;
-let inFlightFearGreed: Promise<void> | null = null;
 
 function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
@@ -79,21 +74,6 @@ export function parseObservedHourlyOpenAtBoundary(payload: unknown, now: number)
   return null;
 }
 
-export function parseFearGreed(payload: unknown): FearGreedValue[] {
-  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as FearGreedPayload).data)) throw new Error('Alternative.me returned a malformed Fear & Greed payload.');
-  const entries = (payload as FearGreedPayload).data as Array<Record<string, unknown>>;
-  const byTimestamp = new Map<number, FearGreedValue>();
-  for (const entry of entries) {
-    const value = Number(entry.value);
-    const timestampSeconds = Number(entry.timestamp);
-    const classification = typeof entry.value_classification === 'string' ? entry.value_classification.trim() : '';
-    if (!Number.isInteger(value) || value < 0 || value > 100 || !Number.isFinite(timestampSeconds) || timestampSeconds <= 0 || !classification) throw new Error('Alternative.me returned an invalid Fear & Greed value.');
-    byTimestamp.set(timestampSeconds * 1_000, { value, classification, timestamp: timestampSeconds * 1_000 });
-  }
-  const values = [...byTimestamp.values()].sort((a, b) => b.timestamp - a.timestamp);
-  if (values.length < 7) throw new Error(`Expected 7 Fear & Greed values, received ${values.length}.`);
-  return values.slice(0, 7);
-}
 
 async function requestJson(url: string, fetcher: typeof fetch): Promise<unknown> {
   let lastError: unknown;
@@ -114,27 +94,6 @@ async function requestJson(url: string, fetcher: typeof fetch): Promise<unknown>
   throw lastError instanceof Error ? lastError : new Error('Decision Lab data request failed.');
 }
 
-/**
- * Starts an optional context refresh without holding required candle data open.
- * This cache/single-flight is module-local best effort; CDN caching protects
- * public deployments but a distributed production service needs shared limits.
- */
-function currentFearGreedContext(now: number, fetcher: typeof fetch): FearGreedValue[] {
-  if ((!latestFearGreed || latestFearGreed.expiresAt <= now) && !inFlightFearGreed) {
-    const refresh = requestJson(FEAR_GREED_URL, fetcher)
-      .then(parseFearGreed)
-      .then((values) => { latestFearGreed = { values, expiresAt: now + 60_000 }; })
-      .catch(() => undefined)
-      .finally(() => { if (inFlightFearGreed === refresh) inFlightFearGreed = null; });
-    inFlightFearGreed = refresh;
-  }
-  return latestFearGreed?.values ?? [];
-}
-
-export function clearFearGreedContextForTests(): void {
-  latestFearGreed = null;
-  inFlightFearGreed = null;
-}
 
 export async function fetchDecisionMarketData(now = Date.now(), fetcher: typeof fetch = fetch): Promise<DecisionMarketData> {
   const [dailyPayload, hourlyPayload] = await Promise.all([
@@ -143,19 +102,14 @@ export async function fetchDecisionMarketData(now = Date.now(), fetcher: typeof 
   ]);
   const daily = validateCompletedLabCandles(parseCompletedBinanceLabCandles(dailyPayload, DAY, now), DAY, now, 220);
   const hourly = validateCompletedLabCandles(parseCompletedBinanceLabCandles(hourlyPayload, HOUR, now), HOUR, now, 22);
-  // Optional context starts after required validation and never delays a
-  // candle-based result. A later request can render its module-local cache.
-  const fearGreed = currentFearGreedContext(now, fetcher);
   return {
     source: 'Binance.US',
     daily,
     hourly,
-    fearGreed,
     executionOpen: parseObservedHourlyOpenAtBoundary(hourlyPayload, now),
   };
 }
 
 export const decisionLabSources = {
   binanceUs: 'https://api.binance.us/api/v3/klines',
-  fearGreed: 'https://api.alternative.me/fng/?limit=7&format=json',
 } as const;

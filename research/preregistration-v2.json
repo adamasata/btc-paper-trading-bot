@@ -1,0 +1,118 @@
+{
+  "protocolVersion": "v2",
+  "registeredAt": "2026-10-23T08:13:42+02:00",
+  "status": "registered-before-v2-data-fetch",
+  "supersedes": {
+    "invalidatedRun": "research/runs/2026-10-23T06-02-55-458Z",
+    "reason": "The v1 run did not execute a genuine buy-and-hold baseline, opened holdout for an unqualified negative development candidate, and did not implement the declared generation progression. Its holdout must not be used for v2 tuning or acceptance."
+  },
+  "objective": "Evaluate causal, long-only BTC/USD candidates on the latest 30 complete days without selecting on a single 24-hour boundary or inspecting sealed holdout data before a development-qualified candidate is frozen.",
+  "market": {
+    "symbol": "BTCUSD",
+    "granularity": "1m",
+    "primaryProvider": "Binance.US public klines",
+    "selectionData": "No v2 provider data, development summary, or holdout result was read before this registration."
+  },
+  "execution": {
+    "initialCashUsd": 10000,
+    "longOnly": true,
+    "leverage": 0,
+    "feeRate": 0.001,
+    "decisionPrice": "completed candle close",
+    "fillPrice": "next candle open",
+    "windowEnd": "All positions are flat at the 24-hour boundary using that boundary's observable open; no later candle data is read.",
+    "genuineAllocationRates": [0.25, 0.4, 0.6],
+    "buyAndHoldBaseline": "A precommitted continuously-long baseline enters the genuine sleeve at the window's first observable open and force-closes it at the boundary open, creating one genuine full-window round trip. It pays the 0.1% buy and 0.1% sell fees.",
+    "qualificationOverlay": {
+      "enabledOnlyWhenGenuineRoundTripsBelow": 5,
+      "targetTotalRoundTrips": 5,
+      "allocationRate": 0.01,
+      "schedule": "Final ten minutes of each 24-hour window; sequential one-minute round trips in fixed even-minute slots.",
+      "accounting": "A dedicated 1% sleeve is held out at window start. Overlay profit/loss and fees are reported separately and never decide candidate signals."
+    }
+  },
+  "windows": {
+    "count": 30,
+    "hoursPerWindow": 24,
+    "offsetHours": [0, 6, 12, 18],
+    "developmentDays": 20,
+    "sealedHoldoutDays": 10,
+    "selection": "Evaluate development-only candidates in the predeclared generation order. Freeze one qualified candidate ID before opening holdout results."
+  },
+  "preHoldoutQualification": [
+    "more positive than negative development windows after all fees and overlay trades",
+    "positive development mean and median return",
+    "positive development expectancy and profit factor greater than one",
+    "positive aggregate development total P&L",
+    "positive aggregate genuine development P&L, so qualification trades cannot establish credibility",
+    "positive development mean return at every registered offset"
+  ],
+  "generations": [
+    {
+      "generation": 1,
+      "family": "selective-regime-pullback",
+      "grid": {
+        "allocationRate": [0.25, 0.4, 0.6],
+        "fastEma": [10, 20],
+        "slowEma": [30, 50],
+        "trendEma": [90],
+        "pullbackFraction": [0.001, 0.002],
+        "takeProfitFraction": [0.003, 0.005],
+        "stopLossFraction": [0.002, 0.004],
+        "maxHoldMinutes": [60]
+      }
+    },
+    {
+      "generation": 2,
+      "family": "volatility-contraction-breakout-retest",
+      "grid": {
+        "allocationRate": [0.25, 0.4, 0.6],
+        "breakoutLookbackMinutes": [30, 60],
+        "contractionRatioMax": [0.7, 0.85],
+        "retestToleranceFraction": [0.001, 0.002],
+        "takeProfitFraction": [0.004],
+        "stopLossFraction": [0.003],
+        "maxHoldMinutes": [90]
+      }
+    },
+    {
+      "generation": 3,
+      "family": "range-regime-mean-reversion",
+      "grid": {
+        "allocationRate": [0.25, 0.4, 0.6],
+        "lookbackMinutes": [30, 60],
+        "maxTrendFraction": [0.003, 0.006],
+        "entryZScore": [-1.25, -1.75],
+        "takeProfitFraction": [0.0025],
+        "stopLossFraction": [0.003],
+        "maxHoldMinutes": [60]
+      }
+    },
+    {
+      "generation": 4,
+      "family": "session-momentum",
+      "grid": {
+        "allocationRate": [0.25, 0.4, 0.6],
+        "sessionsUtcHour": [[0, 8, 16], [2, 10, 18]],
+        "lookbackMinutes": [30, 60],
+        "minimumMomentumFraction": [0.0015, 0.003],
+        "takeProfitFraction": [0.0035],
+        "stopLossFraction": [0.0025],
+        "maxHoldMinutes": [60]
+      }
+    }
+  ],
+  "baselines": ["v1", "cash", "buy-and-hold"],
+  "holdoutGate": [
+    "more positive than negative windows after all fees and overlay trades",
+    "positive mean and median return",
+    "positive expectancy and profit factor greater than one",
+    "worst-window loss and max drawdown better than v1",
+    "no offset has a negative mean return and no single window contributes more than 50% of total P&L",
+    "materially beats v1 positive-window ratio by at least 5 percentage points and beats cash"
+  ],
+  "expansionPolicy": {
+    "maximumGenerations": 4,
+    "rule": "Only these four distinct generations may be evaluated. If no development candidate clears every pre-holdout qualification threshold, output NO WINNER without opening holdout."
+  }
+}

@@ -44,7 +44,7 @@ export async function getLatestDecision(dependencies: DecisionDependencies = {})
     } catch (error) {
       const failClosed = dependencies.failClosedOnMarketError ?? fetchMarket === fetchDecisionMarketData;
       if (!failClosed) throw error;
-      const decision = evaluate({ daily: [], hourly: [], fearGreed: [], asOf: generatedAt });
+      const decision = evaluate({ daily: [], hourly: [], asOf: generatedAt });
       decision.actionReason = 'Fail closed: required candle data is temporarily unavailable, so no actioning setup can be evaluated.';
       const payload: DecisionPayload = {
         generatedAt: new Date(generatedAt).toISOString(),

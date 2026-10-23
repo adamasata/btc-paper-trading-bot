@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearFearGreedContextForTests, fetchDecisionMarketData, parseCompletedBinanceLabCandles, parseFearGreed, parseObservedHourlyOpenAtBoundary, validateCompletedLabCandles } from '../src/lib/decision-data';
+import { fetchDecisionMarketData, parseCompletedBinanceLabCandles, parseObservedHourlyOpenAtBoundary, validateCompletedLabCandles } from '../src/lib/decision-data';
 import { clearLatestDecisionCacheForTests, getLatestDecision } from '../src/lib/decision-service';
 import type { DecisionOutput } from '../src/domain/decision';
 
@@ -31,35 +31,23 @@ test('Decision Lab parser rejects malformed and invalid candle payloads', () => 
   assert.throws(() => parseCompletedBinanceLabCandles([[HOUR, '100', '99', '101', '100', '1', 0]], HOUR, now), /invalid/);
 });
 
-test('Fear & Greed parser normalizes seven newest values and rejects provider errors', () => {
-  const payload = { data: Array.from({ length: 8 }, (_, index) => ({ value: String(60 - index), value_classification: 'Neutral', timestamp: String(1_700_000_000 - index * 86_400) })) };
-  const values = parseFearGreed(payload);
-  assert.equal(values.length, 7);
-  assert.equal(values[0].timestamp, 1_700_000_000_000);
-  assert.throws(() => parseFearGreed({ data: [{ value: '101', value_classification: 'No', timestamp: '1' }] }), /invalid/);
-  assert.throws(() => parseFearGreed({ data: [] }), /Expected 7/);
-});
-
-test('optional Fear & Greed refresh never delays validated required candle data', async () => {
-  clearFearGreedContextForTests();
+test('Decision Lab fetches candle data without a sentiment provider', async () => {
   const decisionNow = Date.UTC(2026, 0, 15, 12, 30);
   const dailyStart = Math.floor(decisionNow / (24 * HOUR)) * (24 * HOUR) - 220 * 24 * HOUR;
   const hourlyStart = Math.floor(decisionNow / HOUR) * HOUR - 72 * HOUR;
   const dailyRows = Array.from({ length: 220 }, (_, index) => row(dailyStart + index * 24 * HOUR, 100 + index));
   const hourlyRows = Array.from({ length: 72 }, (_, index) => row(hourlyStart + index * HOUR, 200 + index));
+  const requested: string[] = [];
   const fetcher: typeof fetch = async (url) => {
     const href = typeof url === 'string' ? url : url.toString();
-    if (href.includes('alternative.me')) return new Promise<Response>(() => undefined);
+    requested.push(href);
     return new Response(JSON.stringify(href.includes('interval=1d') ? dailyRows : hourlyRows));
   };
-  const result = await Promise.race([
-    fetchDecisionMarketData(decisionNow, fetcher),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('optional context blocked required data')), 100)),
-  ]);
+  const result = await fetchDecisionMarketData(decisionNow, fetcher);
   assert.equal(result.daily.length, 220);
   assert.equal(result.hourly.length, 72);
-  assert.deepEqual(result.fearGreed, []);
-  clearFearGreedContextForTests();
+  assert.equal(requested.length, 2);
+  assert.ok(requested.every((href) => href.includes('api.binance.us')));
 });
 
 test('Decision service coalesces cache misses and does not retain a failed refresh', async () => {
@@ -71,7 +59,7 @@ test('Decision service coalesces cache misses and does not retain a failed refre
     calls += 1;
     requestedAsOf = asOf;
     await new Promise((resolve) => setTimeout(resolve, 5));
-    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
+    return { source: 'Binance.US' as const, daily: [], hourly: [], executionOpen: null };
   };
   const dependencies = { fetchMarket, now: () => currentTime };
   const [first, second] = await Promise.all([getLatestDecision(dependencies), getLatestDecision(dependencies)]);
@@ -88,7 +76,7 @@ test('Decision service coalesces cache misses and does not retain a failed refre
   const flaky = async () => {
     attempts += 1;
     if (attempts === 1) throw new Error('temporary outage');
-    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
+    return { source: 'Binance.US' as const, daily: [], hourly: [], executionOpen: null };
   };
   await assert.rejects(getLatestDecision({ fetchMarket: flaky, now: () => currentTime }), /temporary outage/);
   await getLatestDecision({ fetchMarket: flaky, now: () => currentTime });
@@ -111,7 +99,7 @@ test('Decision service never retains an exact-boundary CURRENT instruction', asy
   let calls = 0;
   const fetchMarket = async () => {
     calls += 1;
-    return { source: 'Binance.US' as const, daily: [], hourly: [], fearGreed: [], executionOpen: null };
+    return { source: 'Binance.US' as const, daily: [], hourly: [], executionOpen: null };
   };
   const evaluate = () => ({
     setup: { executionStatus: currentTime === now ? 'CURRENT' : 'EXPIRED' },

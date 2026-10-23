@@ -1,0 +1,7 @@
+{
+  "runId": "2026-10-23T06-33-11-306Z-v3",
+  "startedAt": "2026-10-23T06:33:11.306Z",
+  "preregistrationPath": "research/preregistration-v3.json",
+  "preregistrationSha256": "acd9f1ef759de4124ec607a7538bc46ca83252e8506d539257a0bb6ca6cf5469",
+  "assertionLimit": "This records local file and run order only. The v3 document expressly is not immutable preregistration."
+}
