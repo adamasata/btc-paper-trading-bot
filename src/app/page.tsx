@@ -15,7 +15,7 @@ function SignedMoney({ value }: { value: number }) {
 }
 
 function TradeRow({ trade }: { trade: CompletedTrade }) {
-  return <tr><td><span className="mono">#{trade.id}</span></td><td><span className="tag">{trade.kind.replace('-', ' ')}</span></td><td><strong>{formatUtc(trade.buyTime)}</strong><small>{usd.format(trade.buyPrice)}</small></td><td><strong>{formatUtc(trade.sellTime)}</strong><small>{usd.format(trade.sellPrice)}</small></td><td>{btc.format(trade.quantityBtc)} BTC</td><td>{usd.format(trade.buyFeeUsd + trade.sellFeeUsd)}</td><td><span className="tag">{trade.exitReason.replace('-', ' ')}</span></td><td><SignedMoney value={trade.profitUsd} /><small>{trade.profitPercent >= 0 ? '+' : ''}{trade.profitPercent.toFixed(2)}%</small></td></tr>;
+  return <tr><td><span className="mono">#{trade.id}</span></td><td><span className="tag">{trade.kind.replace('-', ' ')}</span></td><td><strong>{formatUtc(trade.buyTime)}</strong><small>{usd.format(trade.buyPrice)}</small></td><td><strong>{formatUtc(trade.sellTime)}</strong><small>{usd.format(trade.sellPrice)}</small></td><td><strong>{usd.format(trade.quantityBtc * trade.buyPrice)}</strong><small>{btc.format(trade.quantityBtc)} BTC</small></td><td>{usd.format(trade.buyFeeUsd + trade.sellFeeUsd)}</td><td><span className="tag">{trade.exitReason.replace('-', ' ')}</span></td><td><SignedMoney value={trade.profitUsd} /><small>{trade.profitPercent >= 0 ? '+' : ''}{trade.profitPercent.toFixed(2)}%</small></td></tr>;
 }
 
 export default function Home() {
