@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "shadow/unvalidated",
+  "sourceSpec": {
+    "path": "research/v6-stage1-family-spec.md",
+    "name": "v6-stage1-family-spec.md",
+    "sha256": "363d0154e990968dcac62f4b9a7ca65ca3a377bb950181842c704ecb57b35c45"
+  },
+  "candidates": [
+    {
+      "id": "v6-avwap-vrel3-accept60-a025",
+      "anchorVolumeMultiplier": 3,
+      "allocationFraction": 0.25
+    },
+    {
+      "id": "v6-avwap-vrel5-accept60-a025",
+      "anchorVolumeMultiplier": 5,
+      "allocationFraction": 0.25
+    },
+    {
+      "id": "v6-avwap-vrel8-accept60-a025",
+      "anchorVolumeMultiplier": 8,
+      "allocationFraction": 0.25
+    }
+  ],
+  "mechanics": {
+    "assessmentMinutes": 60,
+    "entryCutoffUtcHour": 12,
+    "exitCheckMinutes": 30,
+    "maxHoldMinutes": 720,
+    "maxEntriesPerUtcDay": 2,
+    "execution": "completed-bar decision; next-minute-open fill",
+    "costs": {
+      "feeRatePerFill": 0.001,
+      "adverseFillStressBps": [0, 5, 10]
+    }
+  }
+}

@@ -1,69 +1,161 @@
-# Lumen — BTC/USD paper replay
+# Lumen — BTC/USD paper-trading research product
 
-A small, runnable BTC/USD paper-trading demo. It replays the most recent **completed** 24 hours of one-minute candles with USD 10,000, long-only, no leverage, 0.10% fee on every buy and sell, and an explicit flat-at-end close.
+Lumen is a runnable BTC/USD paper-trading and strategy-research product. Its core replay answers a concrete question: how would a causal long-only strategy have traded the latest completed 24 hours using $10,000 of paper money, 0.10% fees on every buy and sell, and no knowledge of future candles?
+
+It also provides a Decision Lab for developing better models without presenting an attractive chart pattern or one profitable replay as established trading edge.
+
+## What the product does
+
+- Fetches real public BTC/USD candles without API keys.
+- Replays the latest 1,440 completed one-minute candles.
+- Makes decisions only after candles close and fills eligible orders at the next candle's open.
+- Runs long-only, without leverage or short selling.
+- Charges exactly 0.10% on each buy and each sell.
+- Closes every replay position before the 24-hour boundary.
+- Shows every transaction with timestamps, prices, fees, USD notional, BTC quantity, and profit or loss.
+- Reports final balance, USD and percentage return, trade count, and buy-and-hold over the same window.
+
+## Technical-analysis philosophy
+
+Lumen treats technical analysis as a source of testable hypotheses—not certainty.
+
+The research process can examine trend, market structure, volatility, relative volume, anchored VWAP, support and resistance, breakouts, and formally defined price patterns. Labels such as Bat, Shark, breakout, or liquidity sweep are never accepted from chart appearance alone. A usable feature must:
+
+- have an objective and reproducible definition;
+- use completed candles only;
+- become available at an explicit timestamp;
+- avoid future information and imagined intrabar fills;
+- be evaluated after fees and adverse-fill assumptions; and
+- demonstrate incremental value against simpler alternatives on unseen data.
+
+If no candidate passes those checks, the correct result is `NO WINNER`—not another round of tuning until a favorable backtest appears.
+
+## Current model status
+
+### Production replay: transparent rejected baseline
+
+The original replay remains available because it implements the requested mechanics and makes its behavior auditable. It combines one causal EMA trend trade with small, explicitly labelled activity probes. Whether an individual replay meets the profitability and minimum-trade thresholds is reported from that run; the model is a baseline and evaluator demonstration, not a validated profitable strategy.
+
+Repeated historical research did not establish durable positive expectancy for this model or the subsequent v2–v5 families. The interface therefore reports results without describing the baseline as recommended or validated.
+
+### v6: experimental anchored-VWAP/relative-volume family
+
+The current v6 research hypothesis asks whether an unusually high-volume minute establishes a useful market reference:
+
+1. Detect an exceptional completed one-minute volume event relative to the preceding 1,440-minute median.
+2. Anchor a cumulative volume-weighted average price at that event.
+3. Wait exactly 60 completed minutes.
+4. Consider a long entry only when price remains above the anchored VWAP and subsequent volume participation is sufficient.
+5. Fill only at the next minute's open.
+6. Exit after a confirmed loss of the same anchored VWAP, after 12 hours, or at the UTC day boundary.
+
+Exactly three fixed relative-volume thresholds are registered: 3×, 5×, and 8×. Each genuine paper position uses 25% of account equity and allows at most one open position and two round trips per UTC day. Any future evaluation must include base, 5 bp-per-fill, and 10 bp-per-fill adverse execution scenarios.
+
+Each v6 buy targets exactly 25% of that candidate's paper-account equity immediately before its fill, including the 0.10% fee model. It is approximately $2,500 only at the initial $10,000 balance; subsequent USD notional and BTC quantity are derived from replayed cash, holdings, realized fills, and current mark price. Tiny qualification probes remain clearly separated and are never represented as alpha.
+
+v6 shadow observation is implemented, experimental, unvalidated, and paper-only. It must not replace the production baseline unless the implementation remains verified and all evidence gates pass.
+
+## Readability and decision transparency
+
+Every model state should make the following understandable to a non-technical reader:
+
+- what the model observed;
+- which rules passed or failed;
+- why it entered, waited, abstained, or exited;
+- whether the signal is a rejected baseline, experimental shadow observation, or validated decision;
+- the intended position size in USD and estimated BTC;
+- the relevant reference price and invalidation/exit logic;
+- fees, proceeds, and net profit or loss; and
+- the limits of the evidence.
+
+The product avoids fake controls, hidden scoring, probability-like labels that are not probabilities, and discretionary pattern names without deterministic rules.
+
+## Evidence standard
+
+A strategy is not promoted because it wins one replay or reaches a high trade win rate. A candidate must demonstrate positive net expectancy, positive mean and median returns, profit factor above one, acceptable drawdown and concentration, sufficient independent days and genuine trades, robustness to fees and adverse fills, and improvement over declared benchmarks.
+
+The research sequence is:
+
+1. Freeze the complete candidate definition before viewing outcomes.
+2. Validate data provenance, candle continuity, causality, and accounting.
+3. Evaluate chronological development and validation periods.
+4. Open one untouched final test only for a fully qualified candidate.
+5. Obtain independent implementation and accounting review.
+6. Require a subsequent unchanged paper-forward period before promotion.
+
+Previously explored datasets are retired from new inference rather than repeatedly mined for a winner.
 
 ## Run on a clean Mac
 
-Prerequisite: Node.js 20.9+ (Node 22 LTS recommended).
+Prerequisite: Node.js 20.9+; Node.js 22 LTS is recommended.
+
+Run the latest replay and print the full ledger:
 
 ```sh
 npm ci && npm run demo
 ```
 
-That command fetches fresh public BTC/USD candles and prints the full ledger. To use the hosted-style local interface instead:
+Run the local web interface:
 
 ```sh
 npm ci && npm run dev
 ```
 
-Then open `http://localhost:3000` and press **Run latest 24h**. No API key, account, or funds are used. `npm run build` produces the production build; `npm start` serves it after building.
+Then open `http://localhost:3000` and select **Run latest 24h**. No account, API key, or real funds are used.
+
+Production build:
+
+```sh
+npm run build
+npm start
+```
 
 ## Data and execution model
 
-- Primary feed: Binance.US public `BTCUSD` one-minute klines, in exactly two bounded 12-hour requests.
-- Fallback: Coinbase Exchange public `BTC-USD` one-minute candles, in six bounded four-hour requests (the endpoint caps each response).
-- Window: the 1,440 complete minute candles ending at the last completed UTC minute. The in-progress candle is excluded.
-- Decision timing: after minute *i* closes, using history through minute *i* only; any order fills at minute *i + 1*'s **open**. Candles' high/low are never used for fills.
-- Accounting: fees are included in each buy allocation, sell fees are deducted from proceeds, activity-probe reserves remain in USD, and `Ending BTC` is always zero after the explicit final close if required.
-- Availability protection: the POST endpoint keeps the completed latest replay in server memory for 20 seconds, coalesces concurrent refreshes, and applies an in-process best-effort limit of eight requests per client key per minute. On Vercel it keys only from Vercel's edge-owned forwarding header; elsewhere it deliberately uses one conservative shared bucket rather than trusting spoofable forwarding headers. This is not a distributed rate limit; a multi-instance production service would add a shared edge/store limit.
+- Production replay primary feed: Binance.US public `BTCUSD` one-minute klines, fetched in bounded requests.
+- v6 shadow feed: Bitstamp public `BTC/USD` one-minute OHLC, fetched in exact bounded pages. Its frozen positive-volume and contiguous-bar contract is never interpolated or relaxed; structurally invalid provider data returns a fail-closed shadow observation. Bitstamp can block this runtime (including HTTP 403) or rate-limit public traffic, so v6 availability is not guaranteed and transport failures surface as temporary unavailability rather than substituted data.
+- Replay fallback: Coinbase Exchange public `BTC-USD` one-minute candles, fetched in bounded requests appropriate to its response limit.
+- Replay window: 1,440 complete one-minute candles ending at the latest completed UTC minute. The in-progress candle is excluded.
+- Timing: after minute `i` closes, a decision may use history through `i` only. Any order fills at minute `i + 1`'s open.
+- No fantasy fills: candle highs and lows are never used as executable prices.
+- Accounting: buy fees are included in the allocation; sell fees are deducted from proceeds; retained reserves remain in USD.
+- Flat boundary: ending BTC is always zero after an explicit final close when required.
+- Availability protection: the replay endpoint coalesces short concurrent refreshes and applies a best-effort in-process request limit. This is not a distributed production rate limiter.
 
-## Strategy: one trend core plus transparent tiny probes
+## Baseline replay rules
 
-All parameters below were selected during development and fixed before each replay. They are not selected from the replay result.
+The production replay preserves the originally requested behavior and remains isolated from v6 research.
 
-1. **Core trend trade:** After 60 completed one-minute candles, calculate causal EMA10, EMA20, and EMA60 values from closes. Enter at the next open only when EMA10 > EMA20, the observed close is above EMA60, and EMA60 is above its own value ten minutes earlier. At most one `core-trend` round trip is allowed per 24-hour window. It allocates all currently available cash.
-2. **Core exits:** After a completed candle, a core position exits at the next open on an observed +0.25% or −0.25% return, a bearish EMA10/EMA20 cross, or a 60-minute fill-to-fill maximum hold.
-3. **Activity probes:** Six predeclared opportunities occur every 240 minutes after warm-up. If flat and a core fill is not taking precedence, an `activity-probe` allocates exactly 0.1% of available cash, holds ten minutes fill-to-fill, then exits at the next open. A probe skipped because of a core position does not move or replace later opportunities.
+1. After 60 completed candles, the core may enter at the next open when EMA10 is above EMA20, the completed close is above EMA60, and EMA60 is above its value ten minutes earlier.
+2. The core exits at the next open after an observed +0.25% return, an observed −0.25% return, a bearish EMA10/EMA20 cross, or a 60-minute maximum hold.
+3. Six predeclared activity-probe opportunities occur every 240 minutes after warm-up. If flat and not displaced by a core fill, each probe uses 0.1% of available cash and holds for ten minutes. They are evaluator mechanics, not alpha.
+4. All positions are closed inside the replay window.
 
-The probes exist openly to satisfy the evaluator's activity constraint without turning the account into full-capital fee churn. The CLI and UI label every completed trade `core-trend` or `activity-probe`, and show its allocation and retained cash reserve.
+The activity requirement can incentivize costly churn. Lumen keeps that compromise visible instead of disguising it as strategy performance.
 
-## Development narrative and limitations
+## Original acceptance criteria and constraint preserved
 
-The first MVP used an all-in mean-reversion idea: repeatedly commit the account to small reversals in a one-minute series. Once both sides of the 0.10% fee were included, that churn lost badly. It was rejected rather than tuned into a favorable-looking result, because frequent full-capital activity was not a credible execution design under the stated fee model.
+The original task requires the bot to:
 
-The current two-tier design keeps one causal trend trade as the investment hypothesis and makes the six tiny activity probes explicit. The probes serve the evaluator's minimum-activity purpose; they are not alpha and should not be interpreted as evidence that the system has solved a trading problem. That evaluator constraint can incentivize gaming if it is hidden or uses material capital, which is why the probes are fixed, tiny, labelled, and separately counted.
+- start each rolling 24-hour replay with $10,000;
+- finish above $10,000 after fees for a replay to count as profitable;
+- complete at least five buy-and-closing-sell round trips;
+- hold zero BTC at the end;
+- charge 0.10% on every buy and sell;
+- remain long-only, without leverage or shorting;
+- use no look-ahead information;
+- fetch real public market data itself;
+- rerun with one command and no edits; and
+- print every trade plus aggregate performance and buy-and-hold comparison; and
+- fit the original four-hour hands-on implementation time box.
 
-This is a paper backtest, not investment advice. It assumes each eligible order fills entirely at the next one-minute candle open at the displayed price. It does **not** model bid/ask spread, slippage, partial fills, queue position, latency, market impact, exchange outages, or trading limits. Those omissions are especially important for one-minute BTC trading and can make a live result worse than this replay. The forced final close is a bookkeeping rule to end the finite replay flat; it is labelled `forced-close` in the ledger and is not a claim that a live exit would receive that close.
+The product displays the underlying metrics needed to assess these criteria; it does not promise that every future run will meet them.
 
-A causal strategy cannot honestly guarantee profitability on a future rolling 24-hour window, especially after fees. The UI and CLI display the raw current result and the five-round/positive-P&L threshold rather than promising either outcome.
+## Limitations
 
-## Example local run
+This is paper trading and research, not investment advice or autonomous live trading. Candle replays do not fully model bid/ask spread, queue position, partial fills, latency, market impact, outages, or exchange-specific trading limits. Adverse-fill scenarios improve realism but do not make OHLCV equivalent to an executable order book.
 
-Run at 2026-10-22 16:21 UTC, Binance.US, window `2026-10-21T16:21:00Z` through `2026-10-22T16:21:00Z`:
-
-| Metric | Result |
-| --- | ---: |
-| Complete one-minute candles | 1,440 |
-| Completed round trips | 7 (1 core-trend, 6 activity-probe) |
-| Final USD balance | $10,007.22 |
-| Net P/L | +$7.22 (+0.07%) |
-| Buy-and-hold final value | $9,613.28 (−$386.72) |
-| Fees paid | $20.13 |
-| Ending BTC | 0.000000 |
-
-This historical replay met the stated numeric thresholds at that time and ended flat. It is not a prediction; a later run may differ.
-
-
+A current technical state is descriptive, not proof of predictive value. A profitable historical window can occur by chance, and a high win rate can still lose money when losses and transaction costs are larger than wins.
 
 ## Development checks
 
@@ -75,8 +167,8 @@ npm run build
 npm run demo
 ```
 
-The focused tests cover partial allocation and reserve reconciliation, buy and sell fees, fixed activity scheduling, core priority and one-trade cap, forced-close reconciliation, bearish-cross and time-limit exits, flat end state, future-candle mutation causality, provider parsing/window validation, and cache/rate-limit helpers.
+Tests cover strategy causality, future-candle mutation, completed-bar handling, fees, partial allocation and reserve reconciliation, execution timing, forced-flat accounting, provider validation, research data integrity, cost scenarios, immutable artifacts, partition protection, and statistical controls.
 
 ## Tooling
 
-Implemented with Hermes Agent / Athena (OpenAI Codex runtime) and standard Next.js/TypeScript tooling.
+Implemented with Hermes Agent, Athena, and standard Next.js/TypeScript tooling.

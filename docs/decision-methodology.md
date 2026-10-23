@@ -2,11 +2,15 @@
 
 ## Scope and safety boundary
 
-Decision Lab is a read-only BTC/USD research vertical slice. It fetches public Binance.US `BTCUSD` candles without an API key. It does not submit orders, modify the existing replay, modify bot decisions, access account data, or claim that an observed setup will occur again.
+Decision Lab v1 is a read-only BTC/USD research vertical slice. It fetches public Binance.US `BTCUSD` candles without an API key. The separate v6 shadow observer documents its distinct provider below. Neither path submits orders, modifies the existing replay, accesses account data, or claims that an observed setup will occur again.
 
 The v1 output is intentionally binary: `ENTER LONG` only when every actioning prerequisite passes; otherwise `NO TRADE`. Missing, malformed, gapped, stale, or incomplete required candle data always resolves to `NO TRADE`. The action score is explicitly **action-rule coverage, not probability**. It is not a calibrated win rate, expected-value estimate, investment advice, or a recommendation to trade.
 
 The deployed, standalone audit record is available at `/decision-methodology` and is linked from Decision Lab.
+
+## v6 Stage-1 shadow observation
+
+The frozen v6 anchored-VWAP/relative-volume family is implemented only as an experimental, unvalidated, paper-only shadow observer. `/api/v6-decision` reads exact bounded pages of contiguous completed Bitstamp BTC/USD one-minute candles and retains the frozen `V > 0` and no-interpolation contract. Structurally present but invalid data returns a fail-closed observation with `dataQualityPass=false`; it never loosens the contract. Bitstamp may block this runtime with HTTP 403 or rate-limit public traffic; those transport failures return temporary unavailability rather than substituted data. The endpoint reports all three preregistered 25%-allocation variants without altering `/api/decision`, `/api/run`, replay behavior, or production v1. An `entry_ready` state is a next-minute-open paper intent. When that minute's open is causally observed, it becomes a paper fill without reading that candle's later high, low, close, or volume. Each allocation is derived from the candidate's replayed account equity immediately before its own buy; ~$2,500 is only the approximate initial-account value.
 
 ## Fixed data contract
 
