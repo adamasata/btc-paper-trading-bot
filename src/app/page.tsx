@@ -58,6 +58,7 @@ export default function Home() {
     <nav className="site-nav" aria-label="BTCHunter">
       <Link className="brand" href="/" aria-label="BTCHunter home"><span className="brand-mark">₿</span><span>BTCHUNTER</span></Link>
       <span className="nav-context">BTC/USD replay</span>
+      <div className="nav-links"><Link href="/decision-lab">Strategies</Link></div>
       <button className="button button-primary" onClick={runLatest24h} disabled={loading}>
         <span className={loading ? 'spinner' : 'button-dot'} />
         {loading ? 'Replaying…' : 'Run latest 24h'}
