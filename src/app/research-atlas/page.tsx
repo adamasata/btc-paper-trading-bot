@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { summarizeResearchAtlas, type ResearchExperiment } from '@/lib/research-atlas';
+import { summarizeResearchAtlas, type DevelopmentResultsTable, type ResearchExperiment } from '@/lib/research-atlas';
 
 export const metadata = {
   title: 'Research Atlas | BTCHunter',
@@ -21,6 +21,20 @@ function ScoreGrid({ score }: { score: NonNullable<ResearchExperiment['keyScore'
     <div><dt>Profit factor</dt><dd>{score.profitFactor}</dd></div>
     <div><dt>Recorded total</dt><dd>{score.totalProfit}</dd></div>
   </dl>;
+}
+
+function DevelopmentResults({ results }: { results: DevelopmentResultsTable }) {
+  const showCandidatesTried = results.rows.some((row) => row.candidatesTried !== undefined);
+
+  return <section className="atlas-development-results" aria-label={results.title}>
+    <div className="atlas-development-results-heading"><h3>{results.title}</h3><p>{results.caption}</p></div>
+    <div className="table-wrap atlas-development-results-table"><table>
+      <caption>{results.caption}</caption>
+      <thead><tr><th scope="col">Family / variant</th>{showCandidatesTried && <th scope="col">Candidates tried</th>}<th scope="col">Positive development windows</th><th scope="col">Mean return</th><th scope="col">PF</th><th scope="col">Total P/L</th><th scope="col">Qualification outcome</th></tr></thead>
+      <tbody>{results.rows.map((row) => <tr key={row.label}><th scope="row">{row.label}</th>{showCandidatesTried && <td>{row.candidatesTried ?? '—'}</td>}<td>{row.positiveWindows}</td><td>{row.meanReturn}</td><td>{row.profitFactor}</td><td>{row.totalProfit}</td><td>{row.qualification}</td></tr>)}</tbody>
+    </table></div>
+    <p className="atlas-development-results-note">{results.note}</p>
+  </section>;
 }
 
 export default function ResearchAtlasPage() {
@@ -52,7 +66,7 @@ export default function ResearchAtlasPage() {
 
     <section className="atlas-feature" aria-labelledby="closest-title">
       <div className="atlas-feature-kicker"><span className="status-chip status-expired">Best observed (still rejected)</span><span>v5 · post-hoc exploratory</span></div>
-      <div className="atlas-feature-copy"><p className="eyebrow">Closest / least-bad recorded result</p><h2 id="closest-title">{bestObserved.name}</h2><p>{bestObserved.method}</p><p className="atlas-feature-warning">It is highlighted only because it ranked closest among recorded rejected Atlas results. It is a rejected candidate, not a successful strategy.</p></div>
+      <div className="atlas-feature-copy"><p className="eyebrow">Caveated v5 observation</p><h2 id="closest-title">{bestObserved.name}</h2><p>{bestObserved.method}</p><p className="atlas-feature-warning">Its “Best observed” label is limited to the post-hoc exploratory record. It does not rank against the chronological v2 or v3 development studies, and it is not a successful strategy.</p></div>
       {bestObserved.keyScore && <ScoreGrid score={bestObserved.keyScore} />}
       <div className="atlas-feature-footer"><strong>Why it stopped:</strong> {bestObserved.failureOrLearning} <span>{bestObserved.holdout}</span></div>
     </section>
@@ -76,7 +90,7 @@ export default function ResearchAtlasPage() {
             <div className="atlas-detail"><h3>Method</h3><p>{experiment.method}</p></div>
             <div className="atlas-detail"><h3>Failure / learning</h3><p>{experiment.failureOrLearning}</p></div>
             <div className="atlas-detail"><h3>Holdout treatment</h3><p>{experiment.holdout}</p></div>
-            {experiment.keyScore ? <ScoreGrid score={experiment.keyScore} /> : <div className="atlas-unscored"><strong>{experiment.evaluationState === 'pending' ? 'No score reported yet' : 'No comparable headline score'}</strong><span>{experiment.evaluationState === 'pending' ? 'The frozen observer has not produced an evaluation result.' : 'The committed record rejects this methodology without a single headline score suitable for comparison.'}</span></div>}
+            {experiment.keyScore ? <ScoreGrid score={experiment.keyScore} /> : experiment.developmentResults ? <DevelopmentResults results={experiment.developmentResults} /> : <div className="atlas-unscored"><strong>No score reported yet</strong><span>The frozen observer has not produced an evaluation result.</span></div>}
           </div>
           <footer><span>Evidence source</span><code>{experiment.source}</code></footer>
         </article>)}
